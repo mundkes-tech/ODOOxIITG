@@ -1,5 +1,5 @@
 import { motion, AnimatePresence } from "framer-motion";
-import { X, User, Mail, Lock, Shield, Save } from "lucide-react";
+import { X, User as UserIcon, Mail, Lock, Shield, Save } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -121,7 +121,7 @@ const EditUserForm = ({ user, onClose }: EditUserFormProps) => {
           <div className="sticky top-0 glass-card border-b p-6 flex justify-between items-center">
             <div className="flex items-center gap-3">
               <div className="w-10 h-10 rounded-full bg-gradient-to-br from-primary to-purple-600 flex items-center justify-center">
-                <User className="w-5 h-5 text-white" />
+                <UserIcon className="w-5 h-5 text-white" />
               </div>
               <div>
                 <h2 className="text-xl font-semibold">Edit User</h2>
@@ -141,7 +141,7 @@ const EditUserForm = ({ user, onClose }: EditUserFormProps) => {
             {/* Basic Information */}
             <div className="space-y-4">
               <h3 className="text-lg font-semibold flex items-center gap-2">
-                <User className="w-5 h-5 text-primary" />
+                <UserIcon className="w-5 h-5 text-primary" />
                 Basic Information
               </h3>
               

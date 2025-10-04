@@ -3,6 +3,7 @@ const router = express.Router();
 const {
   submitExpense,
   getUserExpenses,
+  getCompanyExpenses,
   getExpense,
   editExpense,
   deleteExpense,
@@ -21,6 +22,9 @@ router.post('/', authorize('employee', 'manager', 'admin'), submitExpense);
 
 // @route   GET /api/expenses/
 router.get('/', authorize('employee', 'manager', 'admin'), getUserExpenses);
+
+// @route   GET /api/expenses/company
+router.get('/company', authorize('manager', 'admin'), getCompanyExpenses);
 
 // @route   GET /api/expenses/history
 router.get('/history', authorize('manager', 'admin'), getExpenseHistory);
