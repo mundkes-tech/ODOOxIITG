@@ -60,9 +60,22 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   const login = async (email: string, password: string): Promise<User> => {
     try {
       setIsLoading(true);
+      console.log('🔄 Starting login process...');
       const response = await authAPI.login({ email, password });
-      setUser(response.user);
-      return response.user;
+      console.log('📥 Login response received:', response);
+      
+      if (response && response.user) {
+        console.log('✅ User data found, setting user:', response.user);
+        setUser(response.user);
+        return response.user;
+      } else if (response && response.data && response.data.user) {
+        console.log('✅ User data found in response.data.user:', response.data.user);
+        setUser(response.data.user);
+        return response.data.user;
+      } else {
+        console.error('❌ No user data in response:', response);
+        throw new Error('Invalid response from server - no user data found');
+      }
     } catch (error) {
       console.error('Login failed:', error);
       throw error;
@@ -81,8 +94,27 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   }) => {
     try {
       setIsLoading(true);
+      console.log('🔄 Starting signup process...');
       const response = await authAPI.signup(userData);
-      setUser(response.user);
+      console.log('📥 Signup response received:', response);
+      
+      if (response && response.user) {
+        console.log('✅ User data found, setting user:', response.user);
+        setUser(response.user);
+      } else if (response && response.data && response.data.user) {
+        console.log('✅ User data found in response.data.user:', response.data.user);
+        setUser(response.data.user);
+      } else {
+        console.error('❌ No user data in response:', response);
+        console.error('❌ Response structure:', {
+          hasResponse: !!response,
+          hasUser: !!(response && response.user),
+          hasData: !!(response && response.data),
+          hasDataUser: !!(response && response.data && response.data.user),
+          responseKeys: response ? Object.keys(response) : 'No response'
+        });
+        throw new Error('Invalid response from server - no user data found');
+      }
     } catch (error) {
       console.error('Signup failed:', error);
       throw error;
