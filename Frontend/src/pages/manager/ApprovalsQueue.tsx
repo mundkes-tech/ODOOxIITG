@@ -5,31 +5,43 @@ import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { toast } from "sonner";
 import { useState } from "react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { expenseAPI } from "@/services/api";
+import { useAuth } from "@/contexts/AuthContext";
 
 const ApprovalsQueue = () => {
-  const [expenses, setExpenses] = useState([
-    { id: 1, employee: "John Doe", title: "Business Lunch", amount: 125.50, date: "2024-01-15", category: "Meals", status: "pending" },
-    { id: 2, employee: "Jane Smith", title: "Flight Tickets", amount: 890.00, date: "2024-01-14", category: "Travel", status: "pending" },
-    { id: 3, employee: "Mike Johnson", title: "Hotel Stay", amount: 450.00, date: "2024-01-13", category: "Accommodation", status: "pending" },
-  ]);
+  const { user } = useAuth();
+  const queryClient = useQueryClient();
 
-  const [approved] = useState([
-    { id: 4, employee: "Sarah Williams", title: "Office Supplies", amount: 67.80, date: "2024-01-12", category: "Supplies", status: "approved" },
-    { id: 5, employee: "Tom Brown", title: "Conference", amount: 599.00, date: "2024-01-11", category: "Events", status: "approved" },
-  ]);
+  // Fetch all expenses for approval
+  const { data: allExpenses = [], isLoading: expensesLoading } = useQuery({
+    queryKey: ['allExpenses'],
+    queryFn: () => expenseAPI.getUserExpenses(), // This will need to be updated to get all company expenses
+  });
 
-  const [rejected] = useState([
-    { id: 6, employee: "Lisa Davis", title: "Personal Item", amount: 45.00, date: "2024-01-10", category: "Other", status: "rejected" },
-  ]);
+  // Filter expenses by status
+  const pendingExpenses = allExpenses.filter(expense => expense.status === 'pending');
+  const approvedExpenses = allExpenses.filter(expense => expense.status === 'approved');
+  const rejectedExpenses = allExpenses.filter(expense => expense.status === 'rejected');
 
-  const handleApprove = (id: number) => {
-    setExpenses(expenses.filter(e => e.id !== id));
-    toast.success("Expense approved successfully! ✅");
+  const handleApprove = async (expenseId: string) => {
+    try {
+      await expenseAPI.approveExpense(expenseId, "Approved by manager");
+      queryClient.invalidateQueries({ queryKey: ['allExpenses'] });
+      toast.success("Expense approved successfully! ✅");
+    } catch (error: any) {
+      toast.error(error.message || "Failed to approve expense");
+    }
   };
 
-  const handleReject = (id: number) => {
-    setExpenses(expenses.filter(e => e.id !== id));
-    toast.error("Expense rejected");
+  const handleReject = async (expenseId: string) => {
+    try {
+      await expenseAPI.rejectExpense(expenseId, "Rejected by manager");
+      queryClient.invalidateQueries({ queryKey: ['allExpenses'] });
+      toast.error("Expense rejected");
+    } catch (error: any) {
+      toast.error(error.message || "Failed to reject expense");
+    }
   };
 
   const ExpenseCard = ({ expense, showActions = false }: any) => (
@@ -43,12 +55,12 @@ const ApprovalsQueue = () => {
         <div className="flex-1">
           <div className="flex items-center gap-4">
             <div className="w-12 h-12 rounded-full bg-gradient-to-br from-primary to-purple-600 flex items-center justify-center text-white font-semibold">
-              {expense.employee.split(" ").map((n: string) => n[0]).join("")}
+              {expense.category[0]?.toUpperCase() || 'E'}
             </div>
             <div>
-              <h4 className="font-semibold text-lg">{expense.title}</h4>
+              <h4 className="font-semibold text-lg">{expense.description}</h4>
               <p className="text-sm text-muted-foreground">
-                {expense.employee} • {expense.category} • {expense.date}
+                {expense.category} • {new Date(expense.date).toLocaleDateString()}
               </p>
             </div>
           </div>
@@ -93,7 +105,7 @@ const ApprovalsQueue = () => {
         animate={{ opacity: 1, y: 0 }}
       >
         <h1 className="text-4xl font-bold gradient-text mb-2">
-          Approvals Queue 📋
+          Welcome, {user?.name || 'Manager'}! 📋
         </h1>
         <p className="text-muted-foreground">
           Review and manage expense approvals
@@ -109,13 +121,13 @@ const ApprovalsQueue = () => {
         <Tabs defaultValue="pending" className="space-y-6">
           <TabsList className="glass-card p-1 w-full md:w-auto">
             <TabsTrigger value="pending" className="flex-1 md:flex-none">
-              Pending ({expenses.length})
+              Pending ({pendingExpenses.length})
             </TabsTrigger>
             <TabsTrigger value="approved" className="flex-1 md:flex-none">
-              Approved ({approved.length})
+              Approved ({approvedExpenses.length})
             </TabsTrigger>
             <TabsTrigger value="rejected" className="flex-1 md:flex-none">
-              Rejected ({rejected.length})
+              Rejected ({rejectedExpenses.length})
             </TabsTrigger>
           </TabsList>
 
@@ -126,9 +138,20 @@ const ApprovalsQueue = () => {
               </CardHeader>
               <CardContent>
                 <div className="space-y-4">
-                  {expenses.map((expense) => (
-                    <ExpenseCard key={expense.id} expense={expense} showActions />
-                  ))}
+                  {expensesLoading ? (
+                    <div className="text-center py-8">
+                      <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto"></div>
+                      <p className="mt-2 text-muted-foreground">Loading expenses...</p>
+                    </div>
+                  ) : pendingExpenses.length === 0 ? (
+                    <div className="text-center py-8">
+                      <p className="text-muted-foreground">No pending expenses to review! 🎉</p>
+                    </div>
+                  ) : (
+                    pendingExpenses.map((expense) => (
+                      <ExpenseCard key={expense.id} expense={expense} showActions />
+                    ))
+                  )}
                 </div>
               </CardContent>
             </Card>
@@ -141,9 +164,15 @@ const ApprovalsQueue = () => {
               </CardHeader>
               <CardContent>
                 <div className="space-y-4">
-                  {approved.map((expense) => (
-                    <ExpenseCard key={expense.id} expense={expense} />
-                  ))}
+                  {approvedExpenses.length === 0 ? (
+                    <div className="text-center py-8">
+                      <p className="text-muted-foreground">No approved expenses yet.</p>
+                    </div>
+                  ) : (
+                    approvedExpenses.map((expense) => (
+                      <ExpenseCard key={expense.id} expense={expense} />
+                    ))
+                  )}
                 </div>
               </CardContent>
             </Card>
@@ -156,9 +185,15 @@ const ApprovalsQueue = () => {
               </CardHeader>
               <CardContent>
                 <div className="space-y-4">
-                  {rejected.map((expense) => (
-                    <ExpenseCard key={expense.id} expense={expense} />
-                  ))}
+                  {rejectedExpenses.length === 0 ? (
+                    <div className="text-center py-8">
+                      <p className="text-muted-foreground">No rejected expenses yet.</p>
+                    </div>
+                  ) : (
+                    rejectedExpenses.map((expense) => (
+                      <ExpenseCard key={expense.id} expense={expense} />
+                    ))
+                  )}
                 </div>
               </CardContent>
             </Card>

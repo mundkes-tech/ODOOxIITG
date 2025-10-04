@@ -4,54 +4,84 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 import { useState } from "react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { expenseAPI, analyticsAPI } from "@/services/api";
+import { useAuth } from "@/contexts/AuthContext";
 
 const ManagerDashboard = () => {
-  const [expenses, setExpenses] = useState([
-    { id: 1, employee: "John Doe", title: "Business Lunch", amount: 125.50, date: "2024-01-15", category: "Meals", status: "pending" },
-    { id: 2, employee: "Jane Smith", title: "Flight Tickets", amount: 890.00, date: "2024-01-14", category: "Travel", status: "pending" },
-    { id: 3, employee: "Mike Johnson", title: "Hotel Stay", amount: 450.00, date: "2024-01-13", category: "Accommodation", status: "pending" },
-    { id: 4, employee: "Sarah Williams", title: "Office Supplies", amount: 67.80, date: "2024-01-12", category: "Supplies", status: "pending" },
-  ]);
+  const { user } = useAuth();
+  const queryClient = useQueryClient();
+
+  // Fetch all expenses for approval (manager can see all company expenses)
+  const { data: allExpenses = [], isLoading: expensesLoading } = useQuery({
+    queryKey: ['allExpenses'],
+    queryFn: () => expenseAPI.getUserExpenses(), // This will need to be updated to get all company expenses
+  });
+
+  // Fetch analytics data
+  const { data: analytics = {} } = useQuery({
+    queryKey: ['analytics'],
+    queryFn: () => analyticsAPI.getDashboardAnalytics(),
+  });
+
+  // Filter pending expenses
+  const pendingExpenses = allExpenses.filter(expense => expense.status === 'pending');
+  const approvedExpenses = allExpenses.filter(expense => expense.status === 'approved');
+  const rejectedExpenses = allExpenses.filter(expense => expense.status === 'rejected');
+
+  const pendingAmount = pendingExpenses.reduce((sum, expense) => sum + expense.amount, 0);
+  const approvedAmount = approvedExpenses.reduce((sum, expense) => sum + expense.amount, 0);
+  const rejectedAmount = rejectedExpenses.reduce((sum, expense) => sum + expense.amount, 0);
 
   const stats = [
     {
       title: "Pending Approval",
-      value: expenses.filter(e => e.status === "pending").length,
+      value: pendingExpenses.length,
       icon: Clock,
       color: "from-yellow-500 to-orange-500",
-      amount: `$${expenses.filter(e => e.status === "pending").reduce((sum, e) => sum + e.amount, 0).toFixed(2)}`,
+      amount: `$${pendingAmount.toFixed(2)}`,
     },
     {
       title: "Approved Today",
-      value: "12",
+      value: approvedExpenses.length,
       icon: CheckCircle,
       color: "from-green-500 to-emerald-600",
-      amount: "$4,230.50",
+      amount: `$${approvedAmount.toFixed(2)}`,
     },
     {
       title: "Rejected Today",
-      value: "2",
+      value: rejectedExpenses.length,
       icon: XCircle,
       color: "from-red-500 to-red-600",
-      amount: "$340.00",
+      amount: `$${rejectedAmount.toFixed(2)}`,
     },
     {
       title: "Total Processed",
-      value: "156",
+      value: allExpenses.length,
       icon: TrendingUp,
       color: "from-blue-500 to-blue-600",
-      amount: "$45,890.00",
+      amount: `$${(approvedAmount + rejectedAmount).toFixed(2)}`,
     },
   ];
 
-  const handleApprove = (id: number) => {
-    setExpenses(expenses.filter(e => e.id !== id));
-    toast.success("Expense approved successfully! ✅");
+  const handleApprove = async (expenseId: string) => {
+    try {
+      await expenseAPI.approveExpense(expenseId, "Approved by manager");
+      queryClient.invalidateQueries({ queryKey: ['allExpenses'] });
+      toast.success("Expense approved successfully! ✅");
+    } catch (error: any) {
+      toast.error(error.message || "Failed to approve expense");
+    }
   };
 
-  const handleReject = (id: number) => {
-    setExpenses(expenses.filter(e => e.id !== id));
-    toast.error("Expense rejected");
+  const handleReject = async (expenseId: string) => {
+    try {
+      await expenseAPI.rejectExpense(expenseId, "Rejected by manager");
+      queryClient.invalidateQueries({ queryKey: ['allExpenses'] });
+      toast.error("Expense rejected");
+    } catch (error: any) {
+      toast.error(error.message || "Failed to reject expense");
+    }
   };
 
   return (
@@ -62,7 +92,7 @@ const ManagerDashboard = () => {
         animate={{ opacity: 1, y: 0 }}
       >
         <h1 className="text-4xl font-bold gradient-text mb-2">
-          Approval Dashboard 📋
+          Welcome, {user?.name || 'Manager'}! 📋
         </h1>
         <p className="text-muted-foreground">
           Review and approve expense requests
@@ -110,58 +140,69 @@ const ManagerDashboard = () => {
           </CardHeader>
           <CardContent>
             <div className="space-y-4">
-              {expenses.map((expense, index) => (
-                <motion.div
-                  key={expense.id}
-                  initial={{ opacity: 0, x: -20 }}
-                  animate={{ opacity: 1, x: 0 }}
-                  transition={{ delay: 0.5 + index * 0.1 }}
-                  whileHover={{ scale: 1.01 }}
-                  className="p-6 rounded-xl glass-card hover:shadow-lg transition-all"
-                >
-                  <div className="flex items-center justify-between">
-                    <div className="flex-1">
+              {expensesLoading ? (
+                <div className="text-center py-8">
+                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto"></div>
+                  <p className="mt-2 text-muted-foreground">Loading expenses...</p>
+                </div>
+              ) : pendingExpenses.length === 0 ? (
+                <div className="text-center py-8">
+                  <p className="text-muted-foreground">No pending expenses to review! 🎉</p>
+                </div>
+              ) : (
+                pendingExpenses.map((expense, index) => (
+                  <motion.div
+                    key={expense.id}
+                    initial={{ opacity: 0, x: -20 }}
+                    animate={{ opacity: 1, x: 0 }}
+                    transition={{ delay: 0.5 + index * 0.1 }}
+                    whileHover={{ scale: 1.01 }}
+                    className="p-6 rounded-xl glass-card hover:shadow-lg transition-all"
+                  >
+                    <div className="flex items-center justify-between">
+                      <div className="flex-1">
+                        <div className="flex items-center gap-4">
+                          <div className="w-12 h-12 rounded-full bg-gradient-to-br from-primary to-purple-600 flex items-center justify-center text-white font-semibold">
+                            {expense.category[0]?.toUpperCase() || 'E'}
+                          </div>
+                          <div>
+                            <h4 className="font-semibold text-lg">{expense.description}</h4>
+                            <p className="text-sm text-muted-foreground">
+                              {expense.category} • {new Date(expense.date).toLocaleDateString()}
+                            </p>
+                          </div>
+                        </div>
+                      </div>
                       <div className="flex items-center gap-4">
-                        <div className="w-12 h-12 rounded-full bg-gradient-to-br from-primary to-purple-600 flex items-center justify-center text-white font-semibold">
-                          {expense.employee.split(" ").map(n => n[0]).join("")}
+                        <div className="text-right mr-4">
+                          <p className="font-bold text-2xl">${expense.amount.toFixed(2)}</p>
                         </div>
-                        <div>
-                          <h4 className="font-semibold text-lg">{expense.title}</h4>
-                          <p className="text-sm text-muted-foreground">
-                            {expense.employee} • {expense.category} • {expense.date}
-                          </p>
+                        <div className="flex gap-2">
+                          <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
+                            <Button
+                              onClick={() => handleApprove(expense.id)}
+                              className="bg-gradient-to-r from-green-500 to-emerald-600 hover:shadow-lg"
+                            >
+                              <CheckCircle className="mr-2 h-4 w-4" />
+                              Approve
+                            </Button>
+                          </motion.div>
+                          <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
+                            <Button
+                              onClick={() => handleReject(expense.id)}
+                              variant="outline"
+                              className="border-red-200 text-red-600 hover:bg-red-50"
+                            >
+                              <XCircle className="mr-2 h-4 w-4" />
+                              Reject
+                            </Button>
+                          </motion.div>
                         </div>
                       </div>
                     </div>
-                    <div className="flex items-center gap-4">
-                      <div className="text-right mr-4">
-                        <p className="font-bold text-2xl">${expense.amount.toFixed(2)}</p>
-                      </div>
-                      <div className="flex gap-2">
-                        <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
-                          <Button
-                            onClick={() => handleApprove(expense.id)}
-                            className="bg-gradient-to-r from-green-500 to-emerald-600 hover:shadow-lg"
-                          >
-                            <CheckCircle className="mr-2 h-4 w-4" />
-                            Approve
-                          </Button>
-                        </motion.div>
-                        <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
-                          <Button
-                            onClick={() => handleReject(expense.id)}
-                            variant="outline"
-                            className="border-red-200 text-red-600 hover:bg-red-50"
-                          >
-                            <XCircle className="mr-2 h-4 w-4" />
-                            Reject
-                          </Button>
-                        </motion.div>
-                      </div>
-                    </div>
-                  </div>
-                </motion.div>
-              ))}
+                  </motion.div>
+                ))
+              )}
             </div>
           </CardContent>
         </Card>

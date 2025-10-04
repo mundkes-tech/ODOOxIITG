@@ -13,6 +13,8 @@ import {
 } from "@/components/ui/select";
 import { useState } from "react";
 import { toast } from "sonner";
+import { expenseAPI } from "@/services/api";
+import { useQueryClient } from "@tanstack/react-query";
 
 interface ExpenseFormProps {
   onClose: () => void;
@@ -22,11 +24,36 @@ const ExpenseForm = ({ onClose }: ExpenseFormProps) => {
   const [uploading, setUploading] = useState(false);
   const [uploaded, setUploaded] = useState(false);
   const [dragActive, setDragActive] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const queryClient = useQueryClient();
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
-    toast.success("Expense submitted successfully! 🎉");
-    onClose();
+    setIsSubmitting(true);
+
+    try {
+      const formData = new FormData(e.currentTarget);
+      const expenseData = {
+        amount: parseFloat(formData.get("amount") as string),
+        currency: "USD", // Default currency, can be made dynamic
+        category: formData.get("category") as string,
+        description: formData.get("description") as string,
+        date: formData.get("date") as string,
+        receiptUrl: uploaded ? "uploaded-receipt-url" : undefined,
+      };
+
+      await expenseAPI.submitExpense(expenseData);
+      
+      // Invalidate and refetch expenses
+      queryClient.invalidateQueries({ queryKey: ['userExpenses'] });
+      
+      toast.success("Expense submitted successfully! 🎉");
+      onClose();
+    } catch (error: any) {
+      toast.error(error.message || "Failed to submit expense. Please try again.");
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   const handleFileUpload = () => {
@@ -194,9 +221,10 @@ const ExpenseForm = ({ onClose }: ExpenseFormProps) => {
               >
                 <Button
                   type="submit"
+                  disabled={isSubmitting}
                   className="w-full bg-gradient-to-r from-primary to-purple-600"
                 >
-                  Submit Expense
+                  {isSubmitting ? "Submitting..." : "Submit Expense"}
                 </Button>
               </motion.div>
             </div>
