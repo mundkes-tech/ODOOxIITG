@@ -1,5 +1,5 @@
 // API service for backend communication
-const API_BASE_URL = 'https://odooxiitg-1.onrender.com/api';
+import { API_BASE_URL } from '../utils/apiConfig';
 
 // Types
 export interface User {
@@ -174,7 +174,7 @@ export const authAPI = {
 export const userAPI = {
   // Get all users
   getUsers: async (): Promise<User[]> => {
-    const response = await apiRequest<{ data: User[] }>('/users');
+    const response = await apiRequest<{ data: User[] }>('/users/');
     return response.data!;
   },
 
@@ -192,7 +192,7 @@ export const userAPI = {
     role: string;
     managerId?: string;
   }): Promise<User> => {
-    const response = await apiRequest<{ data: User }>('/users', {
+    const response = await apiRequest<{ data: User }>('/users/create', {
       method: 'POST',
       body: JSON.stringify(userData),
     });
@@ -424,3 +424,4 @@ export default {
   ocrAPI,
   settingsAPI,
 };
+

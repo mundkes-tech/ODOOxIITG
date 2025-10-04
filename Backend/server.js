@@ -48,7 +48,12 @@ app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 
 // Enable CORS
 app.use(cors({
-  origin: process.env.FRONTEND_URL || 'http://localhost:3000',
+  origin: [
+    'http://localhost:3000',
+    'http://localhost:8080', 
+    'https://odo-ox-iitg.vercel.app',
+    process.env.FRONTEND_URL
+  ].filter(Boolean),
   credentials: true
 }));
 
