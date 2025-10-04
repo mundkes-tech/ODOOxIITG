@@ -13,61 +13,90 @@ import {
   Pie,
   Cell,
 } from "recharts";
+import { useQuery } from "@tanstack/react-query";
+import { userAPI, analyticsAPI, companyAPI } from "@/services/api";
+import { useAuth } from "@/contexts/AuthContext";
 
 const AdminDashboard = () => {
+  const { user } = useAuth();
+
+  // Fetch users
+  const { data: users = [], isLoading: usersLoading } = useQuery({
+    queryKey: ['users'],
+    queryFn: () => userAPI.getUsers(),
+  });
+
+  // Fetch analytics
+  const { data: analytics = {}, isLoading: analyticsLoading } = useQuery({
+    queryKey: ['analytics'],
+    queryFn: () => analyticsAPI.getDashboardAnalytics(),
+  });
+
+  // Fetch company info
+  const { data: company } = useQuery({
+    queryKey: ['company'],
+    queryFn: () => companyAPI.getCompany(),
+  });
+
+  // Calculate stats from real data
+  const totalUsers = users.length;
+  const managers = users.filter(u => u.role === 'manager').length;
+  const employees = users.filter(u => u.role === 'employee').length;
+  const totalAmount = analytics.summary?.totalAmount || 0;
+  const pendingAmount = analytics.summary?.pendingAmount || 0;
+
   const stats = [
     {
       title: "Total Users",
-      value: "248",
+      value: totalUsers.toString(),
       icon: Users,
       color: "from-blue-500 to-blue-600",
-      change: "+12 this month",
+      change: `${employees} employees`,
     },
     {
       title: "Active Managers",
-      value: "18",
+      value: managers.toString(),
       icon: Shield,
       color: "from-purple-500 to-purple-600",
-      change: "3 departments",
+      change: "Managing teams",
     },
     {
-      title: "Monthly Expenses",
-      value: "$124,560",
+      title: "Total Expenses",
+      value: `$${totalAmount.toFixed(2)}`,
       icon: TrendingUp,
       color: "from-green-500 to-emerald-600",
-      change: "+8% from last month",
+      change: `$${pendingAmount.toFixed(2)} pending`,
     },
     {
-      title: "System Health",
-      value: "99.9%",
+      title: "Company",
+      value: company?.name || "Loading...",
       icon: Settings,
       color: "from-pink-500 to-rose-600",
-      change: "All systems operational",
+      change: company?.currency || "USD",
     },
   ];
 
-  const monthlyData = [
-    { month: "Jan", amount: 85000 },
-    { month: "Feb", amount: 92000 },
-    { month: "Mar", amount: 78000 },
-    { month: "Apr", amount: 105000 },
-    { month: "May", amount: 98000 },
-    { month: "Jun", amount: 124560 },
+  // Use real analytics data or fallback to mock data
+  const monthlyData = analytics.expensesByMonth || [
+    { month: "Jan", amount: 0 },
+    { month: "Feb", amount: 0 },
+    { month: "Mar", amount: 0 },
+    { month: "Apr", amount: 0 },
+    { month: "May", amount: 0 },
+    { month: "Jun", amount: 0 },
   ];
 
-  const categoryData = [
-    { name: "Travel", value: 45000, color: "#8B5CF6" },
-    { name: "Meals", value: 28000, color: "#EC4899" },
-    { name: "Accommodation", value: 32000, color: "#3B82F6" },
-    { name: "Supplies", value: 19560, color: "#10B981" },
+  const categoryData = analytics.expensesByCategory || [
+    { name: "Travel", value: 0, color: "#8B5CF6" },
+    { name: "Meals", value: 0, color: "#EC4899" },
+    { name: "Accommodation", value: 0, color: "#3B82F6" },
+    { name: "Supplies", value: 0, color: "#10B981" },
   ];
 
-  const recentUsers = [
-    { name: "John Doe", role: "Employee", department: "Sales", status: "active" },
-    { name: "Jane Smith", role: "Manager", department: "Marketing", status: "active" },
-    { name: "Mike Johnson", role: "Employee", department: "IT", status: "active" },
-    { name: "Sarah Williams", role: "Manager", department: "Finance", status: "active" },
-  ];
+  // Get recent users (last 4)
+  const recentUsers = users
+    .sort((a, b) => new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime())
+    .slice(0, 4);
 
   return (
     <div className="space-y-8">
@@ -77,7 +106,7 @@ const AdminDashboard = () => {
         animate={{ opacity: 1, y: 0 }}
       >
         <h1 className="text-4xl font-bold gradient-text mb-2">
-          Admin Dashboard 🎯
+          Welcome, {user?.name || 'Admin'}! 🎯
         </h1>
         <p className="text-muted-foreground">
           Manage users, settings, and monitor system performance
@@ -197,31 +226,42 @@ const AdminDashboard = () => {
           </CardHeader>
           <CardContent>
             <div className="space-y-3">
-              {recentUsers.map((user, index) => (
-                <motion.div
-                  key={index}
-                  initial={{ opacity: 0, x: -20 }}
-                  animate={{ opacity: 1, x: 0 }}
-                  transition={{ delay: 0.7 + index * 0.1 }}
-                  whileHover={{ scale: 1.01, x: 4 }}
-                  className="flex items-center justify-between p-4 rounded-xl bg-muted/50 hover:bg-muted transition-all"
-                >
-                  <div className="flex items-center gap-4">
-                    <div className="w-12 h-12 rounded-full bg-gradient-to-br from-primary to-purple-600 flex items-center justify-center text-white font-semibold">
-                      {user.name.split(" ").map(n => n[0]).join("")}
+              {usersLoading ? (
+                <div className="text-center py-8">
+                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto"></div>
+                  <p className="mt-2 text-muted-foreground">Loading users...</p>
+                </div>
+              ) : recentUsers.length === 0 ? (
+                <div className="text-center py-8">
+                  <p className="text-muted-foreground">No users found.</p>
+                </div>
+              ) : (
+                recentUsers.map((user, index) => (
+                  <motion.div
+                    key={user.id}
+                    initial={{ opacity: 0, x: -20 }}
+                    animate={{ opacity: 1, x: 0 }}
+                    transition={{ delay: 0.7 + index * 0.1 }}
+                    whileHover={{ scale: 1.01, x: 4 }}
+                    className="flex items-center justify-between p-4 rounded-xl bg-muted/50 hover:bg-muted transition-all"
+                  >
+                    <div className="flex items-center gap-4">
+                      <div className="w-12 h-12 rounded-full bg-gradient-to-br from-primary to-purple-600 flex items-center justify-center text-white font-semibold">
+                        {user.name.split(" ").map(n => n[0]).join("")}
+                      </div>
+                      <div>
+                        <h4 className="font-semibold">{user.name}</h4>
+                        <p className="text-sm text-muted-foreground">
+                          {user.role} • {user.email}
+                        </p>
+                      </div>
                     </div>
-                    <div>
-                      <h4 className="font-semibold">{user.name}</h4>
-                      <p className="text-sm text-muted-foreground">
-                        {user.role} • {user.department}
-                      </p>
-                    </div>
-                  </div>
-                  <span className="px-3 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800 border border-green-200">
-                    Active
-                  </span>
-                </motion.div>
-              ))}
+                    <span className="px-3 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800 border border-green-200">
+                      Active
+                    </span>
+                  </motion.div>
+                ))
+              )}
             </div>
           </CardContent>
         </Card>

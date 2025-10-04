@@ -12,16 +12,28 @@ import {
 } from "@/components/ui/select";
 import { useState } from "react";
 import { toast } from "sonner";
+import { useQuery } from "@tanstack/react-query";
+import { userAPI } from "@/services/api";
+import { useAuth } from "@/contexts/AuthContext";
 
 const UsersManagement = () => {
-  const [users] = useState([
-    { id: 1, name: "John Doe", email: "john@company.com", role: "employee", department: "Sales", status: "active" },
-    { id: 2, name: "Jane Smith", email: "jane@company.com", role: "manager", department: "Marketing", status: "active" },
-    { id: 3, name: "Mike Johnson", email: "mike@company.com", role: "employee", department: "IT", status: "active" },
-    { id: 4, name: "Sarah Williams", email: "sarah@company.com", role: "manager", department: "Finance", status: "active" },
-    { id: 5, name: "Tom Brown", email: "tom@company.com", role: "employee", department: "HR", status: "active" },
-    { id: 6, name: "Lisa Davis", email: "lisa@company.com", role: "admin", department: "Operations", status: "active" },
-  ]);
+  const { user } = useAuth();
+  const [searchTerm, setSearchTerm] = useState("");
+  const [roleFilter, setRoleFilter] = useState("all");
+
+  // Fetch users
+  const { data: users = [], isLoading: usersLoading } = useQuery({
+    queryKey: ['users'],
+    queryFn: () => userAPI.getUsers(),
+  });
+
+  // Filter users
+  const filteredUsers = users.filter(user => {
+    const matchesSearch = user.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                         user.email.toLowerCase().includes(searchTerm.toLowerCase());
+    const matchesRole = roleFilter === "all" || user.role === roleFilter;
+    return matchesSearch && matchesRole;
+  });
 
   const roleColors = {
     employee: "bg-blue-100 text-blue-800 border-blue-200",
@@ -42,12 +54,12 @@ const UsersManagement = () => {
         className="flex justify-between items-center"
       >
         <div>
-          <h1 className="text-4xl font-bold gradient-text mb-2">
-            User Management 👥
-          </h1>
-          <p className="text-muted-foreground">
-            Manage users, roles, and permissions
-          </p>
+        <h1 className="text-4xl font-bold gradient-text mb-2">
+          Welcome, {user?.name || 'Admin'}! 👥
+        </h1>
+        <p className="text-muted-foreground">
+          Manage users, roles, and permissions
+        </p>
         </div>
         <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
           <Button
@@ -75,9 +87,11 @@ const UsersManagement = () => {
                 <Input
                   placeholder="Search users..."
                   className="pl-9"
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
                 />
               </div>
-              <Select>
+              <Select value={roleFilter} onValueChange={setRoleFilter}>
                 <SelectTrigger className="w-[180px]">
                   <SelectValue placeholder="All Roles" />
                 </SelectTrigger>
@@ -114,50 +128,59 @@ const UsersManagement = () => {
       >
         <Card className="glass-card border-none">
           <CardHeader>
-            <CardTitle className="text-2xl">All Users ({users.length})</CardTitle>
+            <CardTitle className="text-2xl">All Users ({filteredUsers.length})</CardTitle>
           </CardHeader>
           <CardContent>
             <div className="space-y-3">
-              {users.map((user, index) => (
-                <motion.div
-                  key={user.id}
-                  initial={{ opacity: 0, x: -20 }}
-                  animate={{ opacity: 1, x: 0 }}
-                  transition={{ delay: 0.3 + index * 0.05 }}
-                  whileHover={{ scale: 1.01, x: 4 }}
-                  className="p-6 rounded-xl glass-card hover:shadow-lg transition-all"
-                >
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-4 flex-1">
-                      <div className="w-14 h-14 rounded-full bg-gradient-to-br from-primary to-purple-600 flex items-center justify-center text-white font-semibold text-lg">
-                        {user.name.split(" ").map(n => n[0]).join("")}
-                      </div>
-                      <div className="flex-1">
-                        <h4 className="font-semibold text-lg">{user.name}</h4>
-                        <div className="flex items-center gap-2 text-sm text-muted-foreground mt-1">
-                          <Mail className="w-4 h-4" />
-                          <span>{user.email}</span>
-                          <span>•</span>
-                          <span>{user.department}</span>
+              {usersLoading ? (
+                <div className="text-center py-8">
+                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto"></div>
+                  <p className="mt-2 text-muted-foreground">Loading users...</p>
+                </div>
+              ) : filteredUsers.length === 0 ? (
+                <div className="text-center py-8">
+                  <p className="text-muted-foreground">No users found matching your filters.</p>
+                </div>
+              ) : (
+                filteredUsers.map((user, index) => (
+                  <motion.div
+                    key={user.id}
+                    initial={{ opacity: 0, x: -20 }}
+                    animate={{ opacity: 1, x: 0 }}
+                    transition={{ delay: 0.3 + index * 0.05 }}
+                    whileHover={{ scale: 1.01, x: 4 }}
+                    className="p-6 rounded-xl glass-card hover:shadow-lg transition-all"
+                  >
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-4 flex-1">
+                        <div className="w-14 h-14 rounded-full bg-gradient-to-br from-primary to-purple-600 flex items-center justify-center text-white font-semibold text-lg">
+                          {user.name.split(" ").map(n => n[0]).join("")}
+                        </div>
+                        <div className="flex-1">
+                          <h4 className="font-semibold text-lg">{user.name}</h4>
+                          <div className="flex items-center gap-2 text-sm text-muted-foreground mt-1">
+                            <Mail className="w-4 h-4" />
+                            <span>{user.email}</span>
+                          </div>
                         </div>
                       </div>
+                      <div className="flex items-center gap-3">
+                        <span
+                          className={`px-4 py-2 rounded-full text-sm font-medium border ${
+                            roleColors[user.role as keyof typeof roleColors]
+                          }`}
+                        >
+                          <Shield className="w-3 h-3 inline mr-1" />
+                          {user.role.charAt(0).toUpperCase() + user.role.slice(1)}
+                        </span>
+                        <Button variant="outline" size="sm">
+                          Edit
+                        </Button>
+                      </div>
                     </div>
-                    <div className="flex items-center gap-3">
-                      <span
-                        className={`px-4 py-2 rounded-full text-sm font-medium border ${
-                          roleColors[user.role as keyof typeof roleColors]
-                        }`}
-                      >
-                        <Shield className="w-3 h-3 inline mr-1" />
-                        {user.role.charAt(0).toUpperCase() + user.role.slice(1)}
-                      </span>
-                      <Button variant="outline" size="sm">
-                        Edit
-                      </Button>
-                    </div>
-                  </div>
-                </motion.div>
-              ))}
+                  </motion.div>
+                ))
+              )}
             </div>
           </CardContent>
         </Card>

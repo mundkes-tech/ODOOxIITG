@@ -2,49 +2,69 @@ import { motion } from "framer-motion";
 import { Plus, TrendingUp, Clock, CheckCircle, XCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { useQuery } from "@tanstack/react-query";
 import ExpenseForm from "@/components/ExpenseForm";
+import { expenseAPI, analyticsAPI } from "@/services/api";
+import { useAuth } from "@/contexts/AuthContext";
+import { useToast } from "@/hooks/use-toast";
 
 const EmployeeDashboard = () => {
   const [showForm, setShowForm] = useState(false);
+  const { user } = useAuth();
+  const { toast } = useToast();
+
+  // Fetch user expenses
+  const { data: expenses = [], isLoading: expensesLoading, refetch: refetchExpenses } = useQuery({
+    queryKey: ['userExpenses'],
+    queryFn: () => expenseAPI.getUserExpenses(),
+  });
+
+  // Calculate stats from real data
+  const totalAmount = expenses.reduce((sum, expense) => sum + expense.amount, 0);
+  const pendingExpenses = expenses.filter(expense => expense.status === 'pending');
+  const approvedExpenses = expenses.filter(expense => expense.status === 'approved');
+  const rejectedExpenses = expenses.filter(expense => expense.status === 'rejected');
+
+  const pendingAmount = pendingExpenses.reduce((sum, expense) => sum + expense.amount, 0);
+  const approvedAmount = approvedExpenses.reduce((sum, expense) => sum + expense.amount, 0);
+  const rejectedAmount = rejectedExpenses.reduce((sum, expense) => sum + expense.amount, 0);
 
   const stats = [
     {
       title: "Total Submitted",
-      value: "$12,450",
+      value: `$${totalAmount.toFixed(2)}`,
       icon: TrendingUp,
       color: "from-blue-500 to-blue-600",
-      change: "+12%",
+      change: `${expenses.length} items`,
     },
     {
       title: "Pending",
-      value: "$2,340",
+      value: `$${pendingAmount.toFixed(2)}`,
       icon: Clock,
       color: "from-yellow-500 to-orange-500",
-      count: "5 items",
+      count: `${pendingExpenses.length} items`,
     },
     {
       title: "Approved",
-      value: "$8,920",
+      value: `$${approvedAmount.toFixed(2)}`,
       icon: CheckCircle,
       color: "from-green-500 to-emerald-600",
-      count: "23 items",
+      count: `${approvedExpenses.length} items`,
     },
     {
       title: "Rejected",
-      value: "$1,190",
+      value: `$${rejectedAmount.toFixed(2)}`,
       icon: XCircle,
       color: "from-red-500 to-red-600",
-      count: "2 items",
+      count: `${rejectedExpenses.length} items`,
     },
   ];
 
-  const recentExpenses = [
-    { id: 1, title: "Business Lunch", amount: 125.50, date: "2024-01-15", status: "pending", category: "Meals" },
-    { id: 2, title: "Flight Tickets", amount: 890.00, date: "2024-01-14", status: "approved", category: "Travel" },
-    { id: 3, title: "Hotel Stay", amount: 450.00, date: "2024-01-13", status: "approved", category: "Accommodation" },
-    { id: 4, title: "Office Supplies", amount: 67.80, date: "2024-01-12", status: "pending", category: "Supplies" },
-  ];
+  // Get recent expenses (last 5)
+  const recentExpenses = expenses
+    .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
+    .slice(0, 5);
 
   const statusColors = {
     pending: "bg-yellow-100 text-yellow-800 border-yellow-200",
@@ -62,7 +82,7 @@ const EmployeeDashboard = () => {
       >
         <div>
           <h1 className="text-4xl font-bold gradient-text mb-2">
-            Welcome Back! 👋
+            Welcome Back, {user?.name || 'Employee'}! 👋
           </h1>
           <p className="text-muted-foreground">
             Track and manage your expenses effortlessly
@@ -123,42 +143,53 @@ const EmployeeDashboard = () => {
           </CardHeader>
           <CardContent>
             <div className="space-y-3">
-              {recentExpenses.map((expense, index) => (
-                <motion.div
-                  key={expense.id}
-                  initial={{ opacity: 0, x: -20 }}
-                  animate={{ opacity: 1, x: 0 }}
-                  transition={{ delay: 0.5 + index * 0.1 }}
-                  whileHover={{ scale: 1.01, x: 4 }}
-                  className="flex items-center justify-between p-4 rounded-xl bg-muted/50 hover:bg-muted transition-all cursor-pointer"
-                >
-                  <div className="flex-1">
-                    <div className="flex items-center gap-3">
-                      <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-primary to-purple-600 flex items-center justify-center text-white font-semibold">
-                        {expense.category[0]}
-                      </div>
-                      <div>
-                        <h4 className="font-semibold">{expense.title}</h4>
-                        <p className="text-sm text-muted-foreground">
-                          {expense.category} • {expense.date}
-                        </p>
+              {expensesLoading ? (
+                <div className="text-center py-8">
+                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto"></div>
+                  <p className="mt-2 text-muted-foreground">Loading expenses...</p>
+                </div>
+              ) : recentExpenses.length === 0 ? (
+                <div className="text-center py-8">
+                  <p className="text-muted-foreground">No expenses found. Create your first expense!</p>
+                </div>
+              ) : (
+                recentExpenses.map((expense, index) => (
+                  <motion.div
+                    key={expense.id}
+                    initial={{ opacity: 0, x: -20 }}
+                    animate={{ opacity: 1, x: 0 }}
+                    transition={{ delay: 0.5 + index * 0.1 }}
+                    whileHover={{ scale: 1.01, x: 4 }}
+                    className="flex items-center justify-between p-4 rounded-xl bg-muted/50 hover:bg-muted transition-all cursor-pointer"
+                  >
+                    <div className="flex-1">
+                      <div className="flex items-center gap-3">
+                        <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-primary to-purple-600 flex items-center justify-center text-white font-semibold">
+                          {expense.category[0]?.toUpperCase() || 'E'}
+                        </div>
+                        <div>
+                          <h4 className="font-semibold">{expense.description}</h4>
+                          <p className="text-sm text-muted-foreground">
+                            {expense.category} • {new Date(expense.date).toLocaleDateString()}
+                          </p>
+                        </div>
                       </div>
                     </div>
-                  </div>
-                  <div className="flex items-center gap-4">
-                    <div className="text-right">
-                      <p className="font-bold text-lg">${expense.amount.toFixed(2)}</p>
+                    <div className="flex items-center gap-4">
+                      <div className="text-right">
+                        <p className="font-bold text-lg">${expense.amount.toFixed(2)}</p>
+                      </div>
+                      <span
+                        className={`px-3 py-1 rounded-full text-xs font-medium border ${
+                          statusColors[expense.status as keyof typeof statusColors]
+                        }`}
+                      >
+                        {expense.status.charAt(0).toUpperCase() + expense.status.slice(1)}
+                      </span>
                     </div>
-                    <span
-                      className={`px-3 py-1 rounded-full text-xs font-medium border ${
-                        statusColors[expense.status as keyof typeof statusColors]
-                      }`}
-                    >
-                      {expense.status.charAt(0).toUpperCase() + expense.status.slice(1)}
-                    </span>
-                  </div>
-                </motion.div>
-              ))}
+                  </motion.div>
+                ))
+              )}
             </div>
           </CardContent>
         </Card>

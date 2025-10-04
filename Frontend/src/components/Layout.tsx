@@ -1,5 +1,5 @@
 import { ReactNode } from "react";
-import { Link, useLocation } from "react-router-dom";
+import { Link, useLocation, useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
 import { 
   LayoutDashboard, 
@@ -7,10 +7,14 @@ import {
   Users, 
   Settings,
   Menu,
-  X
+  X,
+  LogOut
 } from "lucide-react";
 import { useState } from "react";
 import { cn } from "@/lib/utils";
+import { useAuth } from "@/contexts/AuthContext";
+import { Button } from "@/components/ui/button";
+import { useToast } from "@/hooks/use-toast";
 
 interface LayoutProps {
   children: ReactNode;
@@ -19,7 +23,27 @@ interface LayoutProps {
 
 const Layout = ({ children, role }: LayoutProps) => {
   const location = useLocation();
+  const navigate = useNavigate();
   const [sidebarOpen, setSidebarOpen] = useState(true);
+  const { user, logout } = useAuth();
+  const { toast } = useToast();
+
+  const handleLogout = async () => {
+    try {
+      await logout();
+      toast({
+        title: "Logged out successfully",
+        description: "You have been logged out of your account.",
+      });
+      navigate("/auth");
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "Failed to logout. Please try again.",
+        variant: "destructive",
+      });
+    }
+  };
 
   const navigation = {
     employee: [
@@ -102,24 +126,36 @@ const Layout = ({ children, role }: LayoutProps) => {
             })}
           </nav>
 
-          <div className="p-4 border-t">
+          <div className="p-4 border-t space-y-2">
             <div className="glass-card p-3 rounded-lg">
               <div className="flex items-center space-x-3">
                 <div className="w-10 h-10 rounded-full bg-gradient-to-br from-primary to-purple-600 flex items-center justify-center text-white font-semibold">
-                  {role[0].toUpperCase()}
+                  {user?.name?.[0]?.toUpperCase() || role[0].toUpperCase()}
                 </div>
                 {sidebarOpen && (
                   <div className="flex-1 min-w-0">
                     <p className="text-sm font-medium truncate">
-                      {role.charAt(0).toUpperCase() + role.slice(1)}
+                      {user?.name || role.charAt(0).toUpperCase() + role.slice(1)}
                     </p>
                     <p className="text-xs text-muted-foreground truncate">
-                      user@expensehub.com
+                      {user?.email || "user@expensehub.com"}
                     </p>
                   </div>
                 )}
               </div>
             </div>
+            
+            {sidebarOpen && (
+              <Button
+                onClick={handleLogout}
+                variant="outline"
+                size="sm"
+                className="w-full justify-start text-muted-foreground hover:text-foreground"
+              >
+                <LogOut className="w-4 h-4 mr-2" />
+                Logout
+              </Button>
+            )}
           </div>
         </motion.aside>
 
