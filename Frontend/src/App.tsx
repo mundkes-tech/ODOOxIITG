@@ -4,6 +4,7 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { AuthProvider, useAuth } from "@/contexts/AuthContext";
+import { RealtimeProvider } from "@/contexts/RealtimeContext";
 import Layout from "./components/Layout";
 import EmployeeDashboard from "./pages/employee/EmployeeDashboard";
 import MyExpenses from "./pages/employee/MyExpenses";
@@ -46,60 +47,62 @@ const ProtectedRoute = ({ children, requiredRole }: { children: React.ReactNode;
 const App = () => (
   <QueryClientProvider client={queryClient}>
     <AuthProvider>
-      <TooltipProvider>
-        <Toaster />
-        <Sonner />
-        <BrowserRouter>
-          <Routes>
-            <Route path="/" element={<Navigate to="/auth" replace />} />
-            <Route path="/auth" element={<Auth />} />
-            
-            {/* Employee Routes */}
-            <Route path="/employee" element={
-              <ProtectedRoute requiredRole="employee">
-                <Layout role="employee"><EmployeeDashboard /></Layout>
-              </ProtectedRoute>
-            } />
-            <Route path="/employee/expenses" element={
-              <ProtectedRoute requiredRole="employee">
-                <Layout role="employee"><MyExpenses /></Layout>
-              </ProtectedRoute>
-            } />
-            
-            {/* Manager Routes */}
-            <Route path="/manager" element={
-              <ProtectedRoute requiredRole="manager">
-                <Layout role="manager"><ManagerDashboard /></Layout>
-              </ProtectedRoute>
-            } />
-            <Route path="/manager/approvals" element={
-              <ProtectedRoute requiredRole="manager">
-                <Layout role="manager"><ApprovalsQueue /></Layout>
-              </ProtectedRoute>
-            } />
-            
-            {/* Admin Routes */}
-            <Route path="/admin" element={
-              <ProtectedRoute requiredRole="admin">
-                <Layout role="admin"><AdminDashboard /></Layout>
-              </ProtectedRoute>
-            } />
-            <Route path="/admin/users" element={
-              <ProtectedRoute requiredRole="admin">
-                <Layout role="admin"><UsersManagement /></Layout>
-              </ProtectedRoute>
-            } />
-            <Route path="/admin/settings" element={
-              <ProtectedRoute requiredRole="admin">
-                <Layout role="admin"><SystemSettings /></Layout>
-              </ProtectedRoute>
-            } />
-            
-            {/* 404 */}
-            <Route path="*" element={<NotFound />} />
-          </Routes>
-        </BrowserRouter>
-      </TooltipProvider>
+      <RealtimeProvider>
+        <TooltipProvider>
+          <Toaster />
+          <Sonner />
+          <BrowserRouter>
+            <Routes>
+              <Route path="/" element={<Navigate to="/auth" replace />} />
+              <Route path="/auth" element={<Auth />} />
+              
+              {/* Employee Routes */}
+              <Route path="/employee" element={
+                <ProtectedRoute requiredRole="employee">
+                  <Layout role="employee"><EmployeeDashboard /></Layout>
+                </ProtectedRoute>
+              } />
+              <Route path="/employee/expenses" element={
+                <ProtectedRoute requiredRole="employee">
+                  <Layout role="employee"><MyExpenses /></Layout>
+                </ProtectedRoute>
+              } />
+              
+              {/* Manager Routes */}
+              <Route path="/manager" element={
+                <ProtectedRoute requiredRole="manager">
+                  <Layout role="manager"><ManagerDashboard /></Layout>
+                </ProtectedRoute>
+              } />
+              <Route path="/manager/approvals" element={
+                <ProtectedRoute requiredRole="manager">
+                  <Layout role="manager"><ApprovalsQueue /></Layout>
+                </ProtectedRoute>
+              } />
+              
+              {/* Admin Routes */}
+              <Route path="/admin" element={
+                <ProtectedRoute requiredRole="admin">
+                  <Layout role="admin"><AdminDashboard /></Layout>
+                </ProtectedRoute>
+              } />
+              <Route path="/admin/users" element={
+                <ProtectedRoute requiredRole="admin">
+                  <Layout role="admin"><UsersManagement /></Layout>
+                </ProtectedRoute>
+              } />
+              <Route path="/admin/settings" element={
+                <ProtectedRoute requiredRole="admin">
+                  <Layout role="admin"><SystemSettings /></Layout>
+                </ProtectedRoute>
+              } />
+              
+              {/* 404 */}
+              <Route path="*" element={<NotFound />} />
+            </Routes>
+          </BrowserRouter>
+        </TooltipProvider>
+      </RealtimeProvider>
     </AuthProvider>
   </QueryClientProvider>
 );
