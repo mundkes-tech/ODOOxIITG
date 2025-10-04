@@ -107,35 +107,35 @@ export const authAPI = {
     password: string;
     companyName: string;
     country: string;
+    currency: string;
   }): Promise<AuthResponse> => {
     const response = await apiRequest<AuthResponse>('/auth/signup', {
       method: 'POST',
       body: JSON.stringify(userData),
     });
     
-    if (response.success && response.data) {
-      setAuthToken(response.data.token);
+    if (response.success && response.token) {
+      setAuthToken(response.token);
     }
     
-    return response.data!;
+    return response;
   },
 
   // Login
   login: async (credentials: {
     email: string;
     password: string;
-    role: string;
   }): Promise<AuthResponse> => {
     const response = await apiRequest<AuthResponse>('/auth/login', {
       method: 'POST',
       body: JSON.stringify(credentials),
     });
     
-    if (response.success && response.data) {
-      setAuthToken(response.data.token);
+    if (response.success && response.token) {
+      setAuthToken(response.token);
     }
     
-    return response.data!;
+    return response;
   },
 
   // Get current user
@@ -174,7 +174,7 @@ export const authAPI = {
 export const userAPI = {
   // Get all users
   getUsers: async (): Promise<User[]> => {
-    const response = await apiRequest<{ data: User[] }>('/users/');
+    const response = await apiRequest<{ data: User[] }>('/users');
     return response.data!;
   },
 
@@ -192,7 +192,7 @@ export const userAPI = {
     role: string;
     managerId?: string;
   }): Promise<User> => {
-    const response = await apiRequest<{ data: User }>('/users/create', {
+    const response = await apiRequest<{ data: User }>('/users', {
       method: 'POST',
       body: JSON.stringify(userData),
     });

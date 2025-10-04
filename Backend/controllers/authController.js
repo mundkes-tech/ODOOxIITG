@@ -7,7 +7,7 @@ const ErrorResponse = require('../utils/errorResponse');
 // @route   POST /api/auth/signup
 // @access  Public
 exports.signup = async (req, res, next) => {
-  const { name, email, password, companyName, country } = req.body;
+  const { name, email, password, companyName, country, currency } = req.body;
 
   try {
     // Check if user with email already exists
@@ -16,20 +16,35 @@ exports.signup = async (req, res, next) => {
       return next(new ErrorResponse('User already exists with this email', 400));
     }
 
-    // Check if this is the first user (will be admin)
+    // Check if this is the first user (will be admin) OR if we're in development mode
     const isFirstUser = (await User.countDocuments({})) === 0;
+    const isDevelopment = process.env.NODE_ENV === 'development';
     
     let company;
     
-    // If first user, create a new company
-    if (isFirstUser) {
-      company = await Company.create({
-        name: companyName,
-        country: country || 'US',
-        // Currency will be set by pre-save hook based on country
-      });
+    // If first user OR development mode, allow signup
+    if (isFirstUser || isDevelopment) {
+      // In development, check if company already exists for this user
+      if (isDevelopment && !isFirstUser) {
+        // Find existing company or create new one
+        company = await Company.findOne({ name: companyName });
+        if (!company) {
+          company = await Company.create({
+            name: companyName,
+            country: country || 'US',
+            currency: currency || 'USD'
+          });
+        }
+      } else {
+        // First user - create new company
+        company = await Company.create({
+          name: companyName,
+          country: country || 'US',
+          currency: currency || 'USD'
+        });
+      }
     } else {
-      // For subsequent users, they need to be invited by an admin
+      // For subsequent users in production, they need to be invited by an admin
       return next(new ErrorResponse('Please contact your administrator to create an account', 401));
     }
 
@@ -38,9 +53,9 @@ exports.signup = async (req, res, next) => {
       name,
       email,
       password,
-      role: 'admin', // First user is always admin
+      role: isFirstUser ? 'admin' : (isDevelopment ? 'admin' : 'employee'), // First user or dev mode = admin
       companyId: company._id,
-      isAdmin: true
+      isAdmin: isFirstUser || isDevelopment
     });
 
     // Generate JWT
@@ -66,7 +81,7 @@ exports.signup = async (req, res, next) => {
 // @route   POST /api/auth/login
 // @access  Public
 exports.login = async (req, res, next) => {
-  const { email, password, role } = req.body;
+  const { email, password } = req.body;
 
   // Check if email and password is provided
   if (!email || !password) {
@@ -85,13 +100,6 @@ exports.login = async (req, res, next) => {
     const isMatch = await user.comparePassword(password);
     if (!isMatch) {
       return next(new ErrorResponse('Invalid credentials', 401));
-    }
-
-    // Check if user has the requested role
-    if (role && user.role !== role) {
-      return next(
-        new ErrorResponse('Role mismatch. Please select correct role.', 401)
-      );
     }
 
     // Generate JWT

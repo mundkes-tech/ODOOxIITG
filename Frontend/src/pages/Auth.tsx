@@ -30,7 +30,7 @@ const Auth = () => {
         const email = formData.get("email") as string;
         const password = formData.get("password") as string;
         
-        await login(email, password, role);
+        const user = await login(email, password);
         
         toast({
           title: "Welcome back! 👋",
@@ -38,7 +38,7 @@ const Auth = () => {
         });
         
         setTimeout(() => {
-          navigate(`/${role}`);
+          navigate(`/${user.role}`);
         }, 1000);
       } else {
         // Signup
@@ -48,12 +48,27 @@ const Auth = () => {
         const companyName = formData.get("company") as string;
         const country = formData.get("country") as string;
         
+        // Map country to currency
+        const countryToCurrency: { [key: string]: string } = {
+          'us': 'USD',
+          'uk': 'GBP', 
+          'eu': 'EUR',
+          'in': 'INR',
+          'au': 'AUD',
+          'ca': 'CAD',
+          'jp': 'JPY',
+          'sg': 'SGD'
+        };
+        
+        const currency = countryToCurrency[country] || 'USD';
+        
         await signup({
           name,
           email,
           password,
           companyName,
           country,
+          currency,
         });
         
         toast({
@@ -311,7 +326,7 @@ const Auth = () => {
                       >
                         <Label htmlFor="country" className="flex items-center gap-2">
                           <Globe className="w-4 h-4 text-primary" />
-                          Country
+                          Country & Currency
                         </Label>
                         <Select name="country" defaultValue="us">
                           <SelectTrigger className="transition-all focus:ring-2 focus:ring-primary">
@@ -323,33 +338,14 @@ const Auth = () => {
                             <SelectItem value="eu">European Union (EUR)</SelectItem>
                             <SelectItem value="in">India (INR)</SelectItem>
                             <SelectItem value="au">Australia (AUD)</SelectItem>
+                            <SelectItem value="ca">Canada (CAD)</SelectItem>
+                            <SelectItem value="jp">Japan (JPY)</SelectItem>
+                            <SelectItem value="sg">Singapore (SGD)</SelectItem>
                           </SelectContent>
                         </Select>
                       </motion.div>
                     )}
 
-                    {isLogin && (
-                      <motion.div
-                        initial={{ opacity: 0, height: 0 }}
-                        animate={{ opacity: 1, height: "auto" }}
-                        className="space-y-2"
-                      >
-                        <Label htmlFor="role" className="flex items-center gap-2">
-                          <Shield className="w-4 h-4 text-primary" />
-                          Role
-                        </Label>
-                        <Select name="role" defaultValue="employee">
-                          <SelectTrigger className="transition-all focus:ring-2 focus:ring-primary">
-                            <SelectValue />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="employee">Employee</SelectItem>
-                            <SelectItem value="manager">Manager</SelectItem>
-                            <SelectItem value="admin">Admin</SelectItem>
-                          </SelectContent>
-                        </Select>
-                      </motion.div>
-                    )}
 
                     <Button
                       type="submit"

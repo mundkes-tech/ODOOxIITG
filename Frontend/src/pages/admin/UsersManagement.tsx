@@ -15,11 +15,13 @@ import { toast } from "sonner";
 import { useQuery } from "@tanstack/react-query";
 import { userAPI } from "@/services/api";
 import { useAuth } from "@/contexts/AuthContext";
+import AddUserForm from "@/components/AddUserForm";
 
 const UsersManagement = () => {
   const { user } = useAuth();
   const [searchTerm, setSearchTerm] = useState("");
   const [roleFilter, setRoleFilter] = useState("all");
+  const [showAddUserForm, setShowAddUserForm] = useState(false);
 
   // Fetch users
   const { data: users = [], isLoading: usersLoading } = useQuery({
@@ -42,7 +44,7 @@ const UsersManagement = () => {
   };
 
   const handleInviteUser = () => {
-    toast.success("Invitation sent successfully! 📧");
+    setShowAddUserForm(true);
   };
 
   return (
@@ -185,6 +187,11 @@ const UsersManagement = () => {
           </CardContent>
         </Card>
       </motion.div>
+      
+      {/* Add User Form Modal */}
+      {showAddUserForm && (
+        <AddUserForm onClose={() => setShowAddUserForm(false)} />
+      )}
     </div>
   );
 };
