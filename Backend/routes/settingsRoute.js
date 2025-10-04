@@ -1,27 +1,29 @@
 const express = require('express');
 const router = express.Router();
-const {
-  getApprovalRules,
-  addApprovalRule,
-  updateApprovalRule,
-  deleteApprovalRule
+const { 
+  getSettings,
+  updateApprovalRules,
+  updateNotificationSettings,
+  updateSystemPreferences
 } = require('../controllers/settingsController');
 const { protect, authorize } = require('../middleware/auth');
 
-// All routes are protected and admin only
+// All routes below this middleware will be protected and require authentication
 router.use(protect);
+
+// Admin only routes
 router.use(authorize('admin'));
 
-// @route   GET /api/settings/approval-rules
-router.get('/approval-rules', getApprovalRules);
+// Get all settings
+router.get('/', getSettings);
 
-// @route   POST /api/settings/approval-rules
-router.post('/approval-rules', addApprovalRule);
+// Update approval rules
+router.put('/approval-rules', updateApprovalRules);
 
-// @route   PUT /api/settings/approval-rules/:id
-router.put('/approval-rules/:id', updateApprovalRule);
+// Update notification settings
+router.put('/notifications', updateNotificationSettings);
 
-// @route   DELETE /api/settings/approval-rules/:id
-router.delete('/approval-rules/:id', deleteApprovalRule);
+// Update system preferences
+router.put('/system', updateSystemPreferences);
 
 module.exports = router;

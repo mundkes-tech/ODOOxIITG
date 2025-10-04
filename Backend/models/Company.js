@@ -17,6 +17,27 @@ const companySchema = new mongoose.Schema({
     trim: true,
     default: 'USD'
   },
+  timezone: {
+    type: String,
+    required: false,
+    trim: true,
+    default: 'UTC'
+  },
+  address: {
+    type: String,
+    required: false,
+    trim: true
+  },
+  phone: {
+    type: String,
+    required: false,
+    trim: true
+  },
+  website: {
+    type: String,
+    required: false,
+    trim: true
+  },
   createdAt: { 
     type: Date, 
     default: Date.now 

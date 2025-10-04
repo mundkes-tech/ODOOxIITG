@@ -1,5 +1,5 @@
 import { motion } from "framer-motion";
-import { Plus, Search, UserPlus, Mail, Shield } from "lucide-react";
+import { Plus, Search, UserPlus, Mail, Shield, Edit, Trash2, MoreVertical } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -10,18 +10,27 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { useState } from "react";
 import { toast } from "sonner";
-import { useQuery } from "@tanstack/react-query";
-import { userAPI } from "@/services/api";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { userAPI, User } from "@/services/api";
 import { useAuth } from "@/contexts/AuthContext";
 import AddUserForm from "@/components/AddUserForm";
+import EditUserForm from "@/components/EditUserForm";
 
 const UsersManagement = () => {
   const { user } = useAuth();
+  const queryClient = useQueryClient();
   const [searchTerm, setSearchTerm] = useState("");
   const [roleFilter, setRoleFilter] = useState("all");
   const [showAddUserForm, setShowAddUserForm] = useState(false);
+  const [editingUser, setEditingUser] = useState<User | null>(null);
 
   // Fetch users
   const { data: users = [], isLoading: usersLoading } = useQuery({
@@ -45,6 +54,22 @@ const UsersManagement = () => {
 
   const handleInviteUser = () => {
     setShowAddUserForm(true);
+  };
+
+  const handleEditUser = (userToEdit: User) => {
+    setEditingUser(userToEdit);
+  };
+
+  const handleDeleteUser = async (userId: string, userName: string) => {
+    if (window.confirm(`Are you sure you want to delete ${userName}? This action cannot be undone.`)) {
+      try {
+        await userAPI.deleteUser(userId);
+        queryClient.invalidateQueries({ queryKey: ['users'] });
+        toast.success("User deleted successfully");
+      } catch (error: any) {
+        toast.error(error.message || "Failed to delete user");
+      }
+    }
   };
 
   return (
@@ -175,9 +200,29 @@ const UsersManagement = () => {
                           <Shield className="w-3 h-3 inline mr-1" />
                           {user.role.charAt(0).toUpperCase() + user.role.slice(1)}
                         </span>
-                        <Button variant="outline" size="sm">
-                          Edit
-                        </Button>
+                        
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild>
+                            <Button variant="outline" size="sm">
+                              <MoreVertical className="w-4 h-4" />
+                            </Button>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent align="end">
+                            <DropdownMenuItem onClick={() => handleEditUser(user)}>
+                              <Edit className="w-4 h-4 mr-2" />
+                              Edit User
+                            </DropdownMenuItem>
+                            {user.id !== user?.id && (
+                              <DropdownMenuItem 
+                                onClick={() => handleDeleteUser(user.id, user.name)}
+                                className="text-red-600"
+                              >
+                                <Trash2 className="w-4 h-4 mr-2" />
+                                Delete User
+                              </DropdownMenuItem>
+                            )}
+                          </DropdownMenuContent>
+                        </DropdownMenu>
                       </div>
                     </div>
                   </motion.div>
@@ -191,6 +236,14 @@ const UsersManagement = () => {
       {/* Add User Form Modal */}
       {showAddUserForm && (
         <AddUserForm onClose={() => setShowAddUserForm(false)} />
+      )}
+
+      {/* Edit User Form Modal */}
+      {editingUser && (
+        <EditUserForm 
+          user={editingUser} 
+          onClose={() => setEditingUser(null)} 
+        />
       )}
     </div>
   );
