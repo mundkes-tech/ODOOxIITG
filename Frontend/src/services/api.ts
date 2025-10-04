@@ -192,7 +192,7 @@ export const userAPI = {
     role: string;
     managerId?: string;
   }): Promise<User> => {
-    const response = await apiRequest<{ data: User }>('/users/create', {
+    const response = await apiRequest<{ data: User }>('/users', {
       method: 'POST',
       body: JSON.stringify(userData),
     });

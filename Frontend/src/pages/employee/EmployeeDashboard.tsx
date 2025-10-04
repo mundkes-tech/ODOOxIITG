@@ -8,11 +8,14 @@ import ExpenseForm from "@/components/ExpenseForm";
 import { expenseAPI, analyticsAPI } from "@/services/api";
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
+import { useCompanyCurrency } from "@/hooks/useCompanyCurrency";
+import { formatCurrency } from "@/utils/currency";
 
 const EmployeeDashboard = () => {
   const [showForm, setShowForm] = useState(false);
   const { user } = useAuth();
   const { toast } = useToast();
+  const { currency: companyCurrency } = useCompanyCurrency();
 
   // Fetch user expenses
   const { data: expenses = [], isLoading: expensesLoading, refetch: refetchExpenses } = useQuery({
@@ -33,28 +36,28 @@ const EmployeeDashboard = () => {
   const stats = [
     {
       title: "Total Submitted",
-      value: `$${totalAmount.toFixed(2)}`,
+      value: formatCurrency(totalAmount, companyCurrency),
       icon: TrendingUp,
       color: "from-blue-500 to-blue-600",
       change: `${expenses.length} items`,
     },
     {
       title: "Pending",
-      value: `$${pendingAmount.toFixed(2)}`,
+      value: formatCurrency(pendingAmount, companyCurrency),
       icon: Clock,
       color: "from-yellow-500 to-orange-500",
       count: `${pendingExpenses.length} items`,
     },
     {
       title: "Approved",
-      value: `$${approvedAmount.toFixed(2)}`,
+      value: formatCurrency(approvedAmount, companyCurrency),
       icon: CheckCircle,
       color: "from-green-500 to-emerald-600",
       count: `${approvedExpenses.length} items`,
     },
     {
       title: "Rejected",
-      value: `$${rejectedAmount.toFixed(2)}`,
+      value: formatCurrency(rejectedAmount, companyCurrency),
       icon: XCircle,
       color: "from-red-500 to-red-600",
       count: `${rejectedExpenses.length} items`,
@@ -177,7 +180,7 @@ const EmployeeDashboard = () => {
                     </div>
                     <div className="flex items-center gap-4">
                       <div className="text-right">
-                        <p className="font-bold text-lg">${expense.amount.toFixed(2)}</p>
+                        <p className="font-bold text-lg">{formatCurrency(expense.amount, expense.currency || companyCurrency)}</p>
                       </div>
                       <span
                         className={`px-3 py-1 rounded-full text-xs font-medium border ${

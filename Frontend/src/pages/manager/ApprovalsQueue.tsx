@@ -8,10 +8,13 @@ import { useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { expenseAPI } from "@/services/api";
 import { useAuth } from "@/contexts/AuthContext";
+import { useCompanyCurrency } from "@/hooks/useCompanyCurrency";
+import { formatCurrency } from "@/utils/currency";
 
 const ApprovalsQueue = () => {
   const { user } = useAuth();
   const queryClient = useQueryClient();
+  const { currency: companyCurrency } = useCompanyCurrency();
 
   // Fetch all expenses for approval
   const { data: allExpenses = [], isLoading: expensesLoading } = useQuery({
@@ -67,7 +70,7 @@ const ApprovalsQueue = () => {
         </div>
         <div className="flex items-center gap-4">
           <div className="text-right mr-4">
-            <p className="font-bold text-2xl">${expense.amount.toFixed(2)}</p>
+            <p className="font-bold text-2xl">{formatCurrency(expense.amount, expense.currency || companyCurrency)}</p>
           </div>
           {showActions && (
             <div className="flex gap-2">

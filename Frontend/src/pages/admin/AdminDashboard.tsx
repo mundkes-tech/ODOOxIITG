@@ -16,9 +16,12 @@ import {
 import { useQuery } from "@tanstack/react-query";
 import { userAPI, analyticsAPI, companyAPI } from "@/services/api";
 import { useAuth } from "@/contexts/AuthContext";
+import { useCompanyCurrency } from "@/hooks/useCompanyCurrency";
+import { formatCurrency } from "@/utils/currency";
 
 const AdminDashboard = () => {
   const { user } = useAuth();
+  const { currency: companyCurrency } = useCompanyCurrency();
 
   // Fetch users
   const { data: users = [], isLoading: usersLoading } = useQuery({
@@ -62,10 +65,10 @@ const AdminDashboard = () => {
     },
     {
       title: "Total Expenses",
-      value: `$${totalAmount.toFixed(2)}`,
+      value: formatCurrency(totalAmount, companyCurrency),
       icon: TrendingUp,
       color: "from-green-500 to-emerald-600",
-      change: `$${pendingAmount.toFixed(2)} pending`,
+      change: `${formatCurrency(pendingAmount, companyCurrency)} pending`,
     },
     {
       title: "Company",
