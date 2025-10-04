@@ -13,8 +13,9 @@ const companySchema = new mongoose.Schema({
   },
   currency: {
     type: String,
-    required: true,
-    trim: true
+    required: false,
+    trim: true,
+    default: 'USD'
   },
   createdAt: { 
     type: Date, 
@@ -37,9 +38,9 @@ companySchema.pre('save', function(next) {
     'italy': 'EUR'
   };
 
-  if (this.isNew) {
-    const country = this.country.toLowerCase();
-    this.currency = countryToCurrency[country] || 'USD'; // Default to USD if country not found
+  if (this.isNew && !this.currency) {
+    const country = this.country.trim().toLowerCase();
+    this.currency = countryToCurrency[country] || "USD";
   }
   next();
 });
