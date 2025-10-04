@@ -233,6 +233,10 @@ export const companyAPI = {
     name?: string;
     currency?: string;
     country?: string;
+    timezone?: string;
+    address?: string;
+    phone?: string;
+    website?: string;
   }): Promise<Company> => {
     const response = await apiRequest<{ data: Company }>(`/company/${id}`, {
       method: 'PUT',
@@ -246,6 +250,39 @@ export const companyAPI = {
     await apiRequest(`/company/${id}`, {
       method: 'DELETE',
     });
+  },
+};
+
+// Settings API
+export const settingsAPI = {
+  // Update approval rules
+  updateApprovalRules: async (rules: any[]): Promise<void> => {
+    await apiRequest('/settings/approval-rules', {
+      method: 'PUT',
+      body: JSON.stringify({ rules }),
+    });
+  },
+
+  // Update notification settings
+  updateNotificationSettings: async (settings: any): Promise<void> => {
+    await apiRequest('/settings/notifications', {
+      method: 'PUT',
+      body: JSON.stringify(settings),
+    });
+  },
+
+  // Update system preferences
+  updateSystemPreferences: async (preferences: any): Promise<void> => {
+    await apiRequest('/settings/system', {
+      method: 'PUT',
+      body: JSON.stringify(preferences),
+    });
+  },
+
+  // Get all settings
+  getSettings: async (): Promise<any> => {
+    const response = await apiRequest<{ data: any }>('/settings');
+    return response.data!;
   },
 };
 

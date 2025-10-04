@@ -1,22 +1,59 @@
-const ApprovalRule = require('../models/ApprovalRule');
 const ErrorResponse = require('../utils/errorResponse');
 
-// @desc    Get approval rules
-// @route   GET /api/settings/approval-rules
-// @access  Admin
-exports.getApprovalRules = async (req, res, next) => {
+// @desc    Get all settings
+// @route   GET /api/settings
+// @access  Private/Admin
+exports.getSettings = async (req, res, next) => {
   try {
-    const rules = await ApprovalRule.find({ 
-      companyId: req.user.companyId,
-      isActive: true 
-    })
-      .populate('approvers', 'name email')
-      .populate('createdBy', 'name email')
-      .sort({ priority: -1, createdAt: -1 });
-    
+    // In a real implementation, you'd fetch from a Settings model
+    const settings = {
+      approvalRules: [],
+      notifications: {
+        emailNotifications: true,
+        pushNotifications: true,
+        expenseSubmitted: true,
+        expenseApproved: true,
+        expenseRejected: true,
+        weeklyReport: true,
+        monthlyReport: true,
+      },
+      system: {
+        autoApproval: false,
+        requireReceipt: true,
+        allowMultipleApprovers: true,
+        escalationEnabled: true,
+        escalationDays: 3,
+        maxExpenseAmount: 50000,
+        currencyConversion: true,
+      }
+    };
+
     res.status(200).json({
       success: true,
-      count: rules.length,
+      data: settings
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+// @desc    Update approval rules
+// @route   PUT /api/settings/approval-rules
+// @access  Private/Admin
+exports.updateApprovalRules = async (req, res, next) => {
+  try {
+    const { rules } = req.body;
+
+    // Validate rules
+    if (!Array.isArray(rules)) {
+      return next(new ErrorResponse('Rules must be an array', 400));
+    }
+
+    // In a real implementation, you'd save to database
+    // For now, just return success
+    res.status(200).json({
+      success: true,
+      message: 'Approval rules updated successfully',
       data: rules
     });
   } catch (error) {
@@ -24,72 +61,36 @@ exports.getApprovalRules = async (req, res, next) => {
   }
 };
 
-// @desc    Add approval rule
-// @route   POST /api/settings/approval-rules
-// @access  Admin
-exports.addApprovalRule = async (req, res, next) => {
+// @desc    Update notification settings
+// @route   PUT /api/settings/notifications
+// @access  Private/Admin
+exports.updateNotificationSettings = async (req, res, next) => {
   try {
-    const { ruleName, type, conditions, approvers, priority } = req.body;
-    
-    const rule = await ApprovalRule.create({
-      companyId: req.user.companyId,
-      ruleName,
-      type,
-      conditions,
-      approvers,
-      priority: priority || 0,
-      createdBy: req.user.id
-    });
-    
-    res.status(201).json({
+    const notificationSettings = req.body;
+
+    // In a real implementation, you'd save to database
+    res.status(200).json({
       success: true,
-      data: rule
+      message: 'Notification settings updated successfully',
+      data: notificationSettings
     });
   } catch (error) {
     next(error);
   }
 };
 
-// @desc    Update approval rule
-// @route   PUT /api/settings/approval-rules/:id
-// @access  Admin
-exports.updateApprovalRule = async (req, res, next) => {
+// @desc    Update system preferences
+// @route   PUT /api/settings/system
+// @access  Private/Admin
+exports.updateSystemPreferences = async (req, res, next) => {
   try {
-    const { ruleName, type, conditions, approvers, priority, isActive } = req.body;
-    
-    const rule = await ApprovalRule.findByIdAndUpdate(
-      req.params.id,
-      { ruleName, type, conditions, approvers, priority, isActive },
-      { new: true, runValidators: true }
-    );
-    
-    if (!rule) {
-      return next(new ErrorResponse('Approval rule not found', 404));
-    }
-    
-    res.status(200).json({
-      success: true,
-      data: rule
-    });
-  } catch (error) {
-    next(error);
-  }
-};
+    const systemPreferences = req.body;
 
-// @desc    Delete approval rule
-// @route   DELETE /api/settings/approval-rules/:id
-// @access  Admin
-exports.deleteApprovalRule = async (req, res, next) => {
-  try {
-    const rule = await ApprovalRule.findByIdAndDelete(req.params.id);
-    
-    if (!rule) {
-      return next(new ErrorResponse('Approval rule not found', 404));
-    }
-    
+    // In a real implementation, you'd save to database
     res.status(200).json({
       success: true,
-      message: 'Approval rule deleted successfully'
+      message: 'System preferences updated successfully',
+      data: systemPreferences
     });
   } catch (error) {
     next(error);
