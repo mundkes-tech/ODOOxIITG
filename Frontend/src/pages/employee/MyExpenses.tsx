@@ -13,10 +13,13 @@ import { toast } from "sonner";
 import { useQuery } from "@tanstack/react-query";
 import { expenseAPI } from "@/services/api";
 import { useState } from "react";
+import { useCompanyCurrency } from "@/hooks/useCompanyCurrency";
+import { formatCurrency } from "@/utils/currency";
 
 const MyExpenses = () => {
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [categoryFilter, setCategoryFilter] = useState<string>("all");
+  const { currency: companyCurrency } = useCompanyCurrency();
 
   // Fetch user expenses with filters
   const { data: expenses = [], isLoading: expensesLoading } = useQuery({
@@ -167,7 +170,7 @@ const MyExpenses = () => {
                     </div>
                     <div className="flex items-center gap-4">
                       <div className="text-right">
-                        <p className="font-bold text-lg">${expense.amount.toFixed(2)}</p>
+                        <p className="font-bold text-lg">{formatCurrency(expense.amount, expense.currency || companyCurrency)}</p>
                       </div>
                       <span
                         className={`px-3 py-1 rounded-full text-xs font-medium border min-w-[90px] text-center ${

@@ -7,10 +7,13 @@ import { useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { expenseAPI, analyticsAPI } from "@/services/api";
 import { useAuth } from "@/contexts/AuthContext";
+import { useCompanyCurrency } from "@/hooks/useCompanyCurrency";
+import { formatCurrency } from "@/utils/currency";
 
 const ManagerDashboard = () => {
   const { user } = useAuth();
   const queryClient = useQueryClient();
+  const { currency: companyCurrency } = useCompanyCurrency();
 
   // Fetch all expenses for approval (manager can see all company expenses)
   const { data: allExpenses = [], isLoading: expensesLoading } = useQuery({
@@ -39,28 +42,28 @@ const ManagerDashboard = () => {
       value: pendingExpenses.length,
       icon: Clock,
       color: "from-yellow-500 to-orange-500",
-      amount: `$${pendingAmount.toFixed(2)}`,
+      amount: formatCurrency(pendingAmount, companyCurrency),
     },
     {
       title: "Approved Today",
       value: approvedExpenses.length,
       icon: CheckCircle,
       color: "from-green-500 to-emerald-600",
-      amount: `$${approvedAmount.toFixed(2)}`,
+      amount: formatCurrency(approvedAmount, companyCurrency),
     },
     {
       title: "Rejected Today",
       value: rejectedExpenses.length,
       icon: XCircle,
       color: "from-red-500 to-red-600",
-      amount: `$${rejectedAmount.toFixed(2)}`,
+      amount: formatCurrency(rejectedAmount, companyCurrency),
     },
     {
       title: "Total Processed",
       value: allExpenses.length,
       icon: TrendingUp,
       color: "from-blue-500 to-blue-600",
-      amount: `$${(approvedAmount + rejectedAmount).toFixed(2)}`,
+      amount: formatCurrency(approvedAmount + rejectedAmount, companyCurrency),
     },
   ];
 
@@ -175,7 +178,7 @@ const ManagerDashboard = () => {
                       </div>
                       <div className="flex items-center gap-4">
                         <div className="text-right mr-4">
-                          <p className="font-bold text-2xl">${expense.amount.toFixed(2)}</p>
+                          <p className="font-bold text-2xl">{formatCurrency(expense.amount, expense.currency || companyCurrency)}</p>
                         </div>
                         <div className="flex gap-2">
                           <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>

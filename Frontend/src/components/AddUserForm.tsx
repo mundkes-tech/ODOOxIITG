@@ -44,7 +44,20 @@ const AddUserForm = ({ onClose }: AddUserFormProps) => {
       toast.success("User created successfully! 🎉");
       onClose();
     } catch (error: any) {
-      toast.error(error.message || "Failed to create user. Please try again.");
+      console.error('❌ User creation failed:', error);
+      
+      // Check for specific error types
+      if (error.message.includes('<!DOCTYPE')) {
+        toast.error("Server error: Backend is not responding properly. Please check if the server is running.");
+      } else if (error.message.includes('404')) {
+        toast.error("API endpoint not found. Please check the backend configuration.");
+      } else if (error.message.includes('401') || error.message.includes('403')) {
+        toast.error("Permission denied. Only admins can create users.");
+      } else if (error.message.includes('400')) {
+        toast.error("Invalid user data. Please check all fields are filled correctly.");
+      } else {
+        toast.error(error.message || "Failed to create user. Please try again.");
+      }
     } finally {
       setIsSubmitting(false);
     }

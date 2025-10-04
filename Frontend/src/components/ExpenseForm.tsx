@@ -11,10 +11,13 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { toast } from "sonner";
 import { expenseAPI } from "@/services/api";
 import { useQueryClient } from "@tanstack/react-query";
+import { useAuth } from "@/contexts/AuthContext";
+import { getCurrencySymbol, formatCurrency } from "@/utils/currency";
+import { useCompanyCurrency } from "@/hooks/useCompanyCurrency";
 
 interface ExpenseFormProps {
   onClose: () => void;
@@ -26,6 +29,7 @@ const ExpenseForm = ({ onClose }: ExpenseFormProps) => {
   const [dragActive, setDragActive] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const queryClient = useQueryClient();
+  const { currency: companyCurrency, loading: currencyLoading } = useCompanyCurrency();
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -33,15 +37,44 @@ const ExpenseForm = ({ onClose }: ExpenseFormProps) => {
 
     try {
       const formData = new FormData(e.currentTarget);
+      
+      // Extract and validate form data
+      const amount = formData.get("amount") as string;
+      const category = formData.get("category") as string;
+      const description = formData.get("description") as string;
+      const date = formData.get("date") as string;
+      
+      // Validation
+      if (!amount || parseFloat(amount) <= 0) {
+        toast.error("Please provide a valid amount");
+        return;
+      }
+      
+      if (!category) {
+        toast.error("Please provide a category");
+        return;
+      }
+      
+      if (!description || description.trim().length === 0) {
+        toast.error("Please provide a description");
+        return;
+      }
+      
+      if (!date) {
+        toast.error("Please provide a date");
+        return;
+      }
+
       const expenseData = {
-        amount: parseFloat(formData.get("amount") as string),
-        currency: "USD", // Default currency, can be made dynamic
-        category: formData.get("category") as string,
-        description: formData.get("description") as string,
-        date: formData.get("date") as string,
+        amount: parseFloat(amount),
+        currency: companyCurrency, // Use company's currency
+        category: category,
+        description: description.trim(),
+        date: date,
         receiptUrl: uploaded ? "uploaded-receipt-url" : undefined,
       };
 
+      console.log("📤 Submitting expense:", expenseData);
       await expenseAPI.submitExpense(expenseData);
       
       // Invalidate and refetch expenses
@@ -50,6 +83,7 @@ const ExpenseForm = ({ onClose }: ExpenseFormProps) => {
       toast.success("Expense submitted successfully! 🎉");
       onClose();
     } catch (error: any) {
+      console.error("❌ Expense submission failed:", error);
       toast.error(error.message || "Failed to submit expense. Please try again.");
     } finally {
       setIsSubmitting(false);
@@ -146,13 +180,14 @@ const ExpenseForm = ({ onClose }: ExpenseFormProps) => {
             {/* Form Fields */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div className="space-y-2">
-                <Label htmlFor="amount">Amount</Label>
+                <Label htmlFor="amount">Amount ({getCurrencySymbol(companyCurrency)})</Label>
                 <div className="relative">
                   <DollarSign className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                   <Input
                     id="amount"
+                    name="amount"
                     type="number"
-                    placeholder="0.00"
+                    placeholder={`0.00 ${getCurrencySymbol(companyCurrency)}`}
                     className="pl-9"
                     required
                   />
@@ -165,6 +200,7 @@ const ExpenseForm = ({ onClose }: ExpenseFormProps) => {
                   <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                   <Input
                     id="date"
+                    name="date"
                     type="date"
                     className="pl-9"
                     required
@@ -175,7 +211,7 @@ const ExpenseForm = ({ onClose }: ExpenseFormProps) => {
 
             <div className="space-y-2">
               <Label htmlFor="category">Category</Label>
-              <Select required>
+              <Select name="category" required>
                 <SelectTrigger className="w-full">
                   <Tag className="mr-2 h-4 w-4" />
                   <SelectValue placeholder="Select a category" />
@@ -197,6 +233,7 @@ const ExpenseForm = ({ onClose }: ExpenseFormProps) => {
                 <FileText className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
                 <Textarea
                   id="description"
+                  name="description"
                   placeholder="Add details about this expense..."
                   className="pl-9 min-h-[100px]"
                   required
