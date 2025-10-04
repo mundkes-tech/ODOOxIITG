@@ -1,24 +1,38 @@
 import { motion } from "framer-motion";
-import { CheckCircle, XCircle, Clock, TrendingUp } from "lucide-react";
+import { CheckCircle, XCircle, Clock, TrendingUp, Eye, Filter } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import { Input } from "@/components/ui/input";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { toast } from "sonner";
 import { useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { expenseAPI, analyticsAPI } from "@/services/api";
+import { expenseAPI, analyticsAPI, Expense } from "@/services/api";
 import { useAuth } from "@/contexts/AuthContext";
 import { useCompanyCurrency } from "@/hooks/useCompanyCurrency";
 import { formatCurrency } from "@/utils/currency";
+import ExpenseApprovalModal from "@/components/ExpenseApprovalModal";
+import ApprovalAnalytics from "@/components/ApprovalAnalytics";
 
 const ManagerDashboard = () => {
   const { user } = useAuth();
   const queryClient = useQueryClient();
   const { currency: companyCurrency } = useCompanyCurrency();
+  const [selectedExpense, setSelectedExpense] = useState<Expense | null>(null);
+  const [statusFilter, setStatusFilter] = useState('all');
+  const [searchTerm, setSearchTerm] = useState('');
 
   // Fetch all expenses for approval (manager can see all company expenses)
   const { data: allExpenses = [], isLoading: expensesLoading } = useQuery({
-    queryKey: ['allExpenses'],
-    queryFn: () => expenseAPI.getUserExpenses(), // This will need to be updated to get all company expenses
+    queryKey: ['companyExpenses'],
+    queryFn: () => expenseAPI.getCompanyExpenses(),
   });
 
   // Fetch analytics data
@@ -27,7 +41,16 @@ const ManagerDashboard = () => {
     queryFn: () => analyticsAPI.getDashboardAnalytics(),
   });
 
-  // Filter pending expenses
+  // Filter expenses based on status and search
+  const filteredExpenses = allExpenses.filter(expense => {
+    const matchesStatus = statusFilter === 'all' || expense.status === statusFilter;
+    const matchesSearch = searchTerm === '' || 
+      expense.description.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      expense.submittedBy?.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      expense.category.toLowerCase().includes(searchTerm.toLowerCase());
+    return matchesStatus && matchesSearch;
+  });
+
   const pendingExpenses = allExpenses.filter(expense => expense.status === 'pending');
   const approvedExpenses = allExpenses.filter(expense => expense.status === 'approved');
   const rejectedExpenses = allExpenses.filter(expense => expense.status === 'rejected');
@@ -67,21 +90,30 @@ const ManagerDashboard = () => {
     },
   ];
 
-  const handleApprove = async (expenseId: string) => {
+  const handleApprove = async (expenseId: string, comment?: string, percentage?: number) => {
     try {
-      await expenseAPI.approveExpense(expenseId, "Approved by manager");
-      queryClient.invalidateQueries({ queryKey: ['allExpenses'] });
+      console.log('🔍 Approving expense with ID:', expenseId);
+      console.log('🔍 Comment:', comment);
+      console.log('🔍 Percentage:', percentage);
+      
+      if (!expenseId) {
+        throw new Error('Expense ID is required');
+      }
+      
+      await expenseAPI.approveExpense(expenseId, comment || "Approved by manager", percentage);
+      queryClient.invalidateQueries({ queryKey: ['companyExpenses'] });
       toast.success("Expense approved successfully! ✅");
     } catch (error: any) {
+      console.error('❌ Approval error:', error);
       toast.error(error.message || "Failed to approve expense");
     }
   };
 
-  const handleReject = async (expenseId: string) => {
+  const handleReject = async (expenseId: string, comment?: string) => {
     try {
-      await expenseAPI.rejectExpense(expenseId, "Rejected by manager");
-      queryClient.invalidateQueries({ queryKey: ['allExpenses'] });
-      toast.error("Expense rejected");
+      await expenseAPI.rejectExpense(expenseId, comment || "Rejected by manager");
+      queryClient.invalidateQueries({ queryKey: ['companyExpenses'] });
+      toast.success("Expense rejected successfully! ❌");
     } catch (error: any) {
       toast.error(error.message || "Failed to reject expense");
     }
@@ -131,7 +163,16 @@ const ManagerDashboard = () => {
         ))}
       </div>
 
-      {/* Pending Approvals */}
+      {/* Approval Analytics */}
+      <motion.div
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: 0.3 }}
+      >
+        <ApprovalAnalytics expenses={allExpenses} currency={companyCurrency} />
+      </motion.div>
+
+      {/* Expense Management */}
       <motion.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
@@ -139,7 +180,31 @@ const ManagerDashboard = () => {
       >
         <Card className="glass-card border-none">
           <CardHeader>
-            <CardTitle className="text-2xl">Pending Approvals</CardTitle>
+            <div className="flex items-center justify-between">
+              <CardTitle className="text-2xl">Expense Management</CardTitle>
+              <div className="flex items-center gap-4">
+                <div className="relative">
+                  <Filter className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground h-4 w-4" />
+                  <Input
+                    placeholder="Search expenses..."
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                    className="pl-10 w-64"
+                  />
+                </div>
+                <Select value={statusFilter} onValueChange={setStatusFilter}>
+                  <SelectTrigger className="w-40">
+                    <SelectValue placeholder="Filter by status" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All Status</SelectItem>
+                    <SelectItem value="pending">Pending</SelectItem>
+                    <SelectItem value="approved">Approved</SelectItem>
+                    <SelectItem value="rejected">Rejected</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
           </CardHeader>
           <CardContent>
             <div className="space-y-4">
@@ -148,19 +213,25 @@ const ManagerDashboard = () => {
                   <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto"></div>
                   <p className="mt-2 text-muted-foreground">Loading expenses...</p>
                 </div>
-              ) : pendingExpenses.length === 0 ? (
+              ) : filteredExpenses.length === 0 ? (
                 <div className="text-center py-8">
-                  <p className="text-muted-foreground">No pending expenses to review! 🎉</p>
+                  <p className="text-muted-foreground">
+                    {searchTerm || statusFilter !== 'all' 
+                      ? 'No expenses found matching your filters.' 
+                      : 'No expenses to review! 🎉'
+                    }
+                  </p>
                 </div>
               ) : (
-                pendingExpenses.map((expense, index) => (
+                filteredExpenses.map((expense, index) => (
                   <motion.div
                     key={expense.id}
                     initial={{ opacity: 0, x: -20 }}
                     animate={{ opacity: 1, x: 0 }}
                     transition={{ delay: 0.5 + index * 0.1 }}
                     whileHover={{ scale: 1.01 }}
-                    className="p-6 rounded-xl glass-card hover:shadow-lg transition-all"
+                    className="p-6 rounded-xl glass-card hover:shadow-lg transition-all cursor-pointer"
+                    onClick={() => setSelectedExpense(expense)}
                   >
                     <div className="flex items-center justify-between">
                       <div className="flex-1">
@@ -168,39 +239,44 @@ const ManagerDashboard = () => {
                           <div className="w-12 h-12 rounded-full bg-gradient-to-br from-primary to-purple-600 flex items-center justify-center text-white font-semibold">
                             {expense.category[0]?.toUpperCase() || 'E'}
                           </div>
-                          <div>
-                            <h4 className="font-semibold text-lg">{expense.description}</h4>
+                          <div className="flex-1">
+                            <div className="flex items-center gap-3">
+                              <h4 className="font-semibold text-lg">{expense.description}</h4>
+                              <Badge className={
+                                expense.status === 'pending' ? 'bg-yellow-100 text-yellow-800' :
+                                expense.status === 'approved' ? 'bg-green-100 text-green-800' :
+                                'bg-red-100 text-red-800'
+                              }>
+                                {expense.status.charAt(0).toUpperCase() + expense.status.slice(1)}
+                              </Badge>
+                            </div>
                             <p className="text-sm text-muted-foreground">
-                              {expense.category} • {new Date(expense.date).toLocaleDateString()}
+                              {expense.category} • {new Date(expense.date).toLocaleDateString()} • 
+                              Submitted by {expense.submittedBy?.name || 'Unknown'}
                             </p>
                           </div>
                         </div>
                       </div>
                       <div className="flex items-center gap-4">
-                        <div className="text-right mr-4">
+                        <div className="text-right">
                           <p className="font-bold text-2xl">{formatCurrency(expense.amount, expense.currency || companyCurrency)}</p>
+                          {expense.approvedBy && (
+                            <p className="text-xs text-muted-foreground">
+                              {expense.status === 'approved' ? 'Approved' : 'Rejected'} by {expense.approvedBy.name}
+                            </p>
+                          )}
                         </div>
-                        <div className="flex gap-2">
-                          <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
-                            <Button
-                              onClick={() => handleApprove(expense.id)}
-                              className="bg-gradient-to-r from-green-500 to-emerald-600 hover:shadow-lg"
-                            >
-                              <CheckCircle className="mr-2 h-4 w-4" />
-                              Approve
-                            </Button>
-                          </motion.div>
-                          <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
-                            <Button
-                              onClick={() => handleReject(expense.id)}
-                              variant="outline"
-                              className="border-red-200 text-red-600 hover:bg-red-50"
-                            >
-                              <XCircle className="mr-2 h-4 w-4" />
-                              Reject
-                            </Button>
-                          </motion.div>
-                        </div>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setSelectedExpense(expense);
+                          }}
+                        >
+                          <Eye className="w-4 h-4 mr-2" />
+                          Review
+                        </Button>
                       </div>
                     </div>
                   </motion.div>
@@ -210,6 +286,16 @@ const ManagerDashboard = () => {
           </CardContent>
         </Card>
       </motion.div>
+
+      {/* Expense Approval Modal */}
+      {selectedExpense && (
+        <ExpenseApprovalModal
+          expense={selectedExpense}
+          onClose={() => setSelectedExpense(null)}
+          onApprove={handleApprove}
+          onReject={handleReject}
+        />
+      )}
     </div>
   );
 };

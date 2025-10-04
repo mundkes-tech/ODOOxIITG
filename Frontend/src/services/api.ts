@@ -255,11 +255,48 @@ export const companyAPI = {
 
 // Settings API
 export const settingsAPI = {
+  // Get all settings
+  getSettings: async (): Promise<any> => {
+    const response = await apiRequest<{ data: any }>('/settings');
+    return response.data!;
+  },
+
   // Update approval rules
   updateApprovalRules: async (rules: any[]): Promise<void> => {
     await apiRequest('/settings/approval-rules', {
       method: 'PUT',
       body: JSON.stringify({ rules }),
+    });
+  },
+
+  // Get approval rules
+  getApprovalRules: async (): Promise<any[]> => {
+    const response = await apiRequest<{ data: any[] }>('/settings/approval-rules');
+    return response.data!;
+  },
+
+  // Add approval rule
+  addApprovalRule: async (ruleData: any): Promise<any> => {
+    const response = await apiRequest<{ data: any }>('/settings/approval-rules', {
+      method: 'POST',
+      body: JSON.stringify(ruleData),
+    });
+    return response.data!;
+  },
+
+  // Update approval rule
+  updateApprovalRule: async (id: string, ruleData: any): Promise<any> => {
+    const response = await apiRequest<{ data: any }>(`/settings/approval-rules/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify(ruleData),
+    });
+    return response.data!;
+  },
+
+  // Delete approval rule
+  deleteApprovalRule: async (id: string): Promise<void> => {
+    await apiRequest(`/settings/approval-rules/${id}`, {
+      method: 'DELETE',
     });
   },
 
@@ -278,12 +315,6 @@ export const settingsAPI = {
       body: JSON.stringify(preferences),
     });
   },
-
-  // Get all settings
-  getSettings: async (): Promise<any> => {
-    const response = await apiRequest<{ data: any }>('/settings');
-    return response.data!;
-  },
 };
 
 // Expense API
@@ -297,24 +328,76 @@ export const expenseAPI = {
     date?: string;
     receiptUrl?: string;
   }): Promise<Expense> => {
-    const response = await apiRequest<{ data: Expense }>('/expenses/', {
+    const response = await apiRequest<{ data: any }>('/expenses/', {
       method: 'POST',
       body: JSON.stringify(expenseData),
     });
-    return response.data!;
+    const expense = response.data!;
+    
+    // Transform MongoDB _id to id for frontend compatibility
+    return {
+      ...expense,
+      id: expense._id || expense.id,
+      submittedBy: typeof expense.submittedBy === 'object' ? expense.submittedBy : { _id: expense.submittedBy },
+      approvedBy: expense.approvedBy && typeof expense.approvedBy === 'object' ? expense.approvedBy : expense.approvedBy
+    };
   },
 
   // Get user expenses
   getUserExpenses: async (status?: string): Promise<Expense[]> => {
     const params = status ? `?status=${status}` : '';
-    const response = await apiRequest<{ data: Expense[] }>(`/expenses/${params}`);
-    return response.data!;
+    const response = await apiRequest<{ data: any[] }>(`/expenses/${params}`);
+    
+    // Transform MongoDB _id to id for frontend compatibility
+    return response.data!.map(expense => ({
+      ...expense,
+      id: expense._id || expense.id,
+      submittedBy: typeof expense.submittedBy === 'object' ? expense.submittedBy : { _id: expense.submittedBy },
+      approvedBy: expense.approvedBy && typeof expense.approvedBy === 'object' ? expense.approvedBy : expense.approvedBy
+    }));
+  },
+
+  // Get company expenses (Manager/Admin)
+  getCompanyExpenses: async (status?: string, submittedBy?: string): Promise<Expense[]> => {
+    const params = new URLSearchParams();
+    if (status) params.append('status', status);
+    if (submittedBy) params.append('submittedBy', submittedBy);
+    const queryString = params.toString();
+    const url = `/expenses/company${queryString ? `?${queryString}` : ''}`;
+    const response = await apiRequest<{ data: any[] }>(url);
+    
+    console.log('🔍 getCompanyExpenses - Raw response:', response);
+    
+    // Transform MongoDB _id to id for frontend compatibility
+    return response.data!.map(expense => {
+      console.log('🔍 Transforming expense:', expense);
+      console.log('🔍 Original _id:', expense._id);
+      console.log('🔍 Original id:', expense.id);
+      
+      const transformed = {
+        ...expense,
+        id: expense._id || expense.id,
+        submittedBy: typeof expense.submittedBy === 'object' ? expense.submittedBy : { _id: expense.submittedBy },
+        approvedBy: expense.approvedBy && typeof expense.approvedBy === 'object' ? expense.approvedBy : expense.approvedBy
+      };
+      
+      console.log('🔍 Transformed expense ID:', transformed.id);
+      return transformed;
+    });
   },
 
   // Get expense by ID
   getExpense: async (id: string): Promise<Expense> => {
-    const response = await apiRequest<{ data: Expense }>(`/expenses/${id}`);
-    return response.data!;
+    const response = await apiRequest<{ data: any }>(`/expenses/${id}`);
+    const expense = response.data!;
+    
+    // Transform MongoDB _id to id for frontend compatibility
+    return {
+      ...expense,
+      id: expense._id || expense.id,
+      submittedBy: typeof expense.submittedBy === 'object' ? expense.submittedBy : { _id: expense.submittedBy },
+      approvedBy: expense.approvedBy && typeof expense.approvedBy === 'object' ? expense.approvedBy : expense.approvedBy
+    };
   },
 
   // Update expense
@@ -339,22 +422,50 @@ export const expenseAPI = {
   },
 
   // Approve expense
-  approveExpense: async (id: string, comment?: string): Promise<Expense> => {
-    const response = await apiRequest<{ data: Expense }>(`/expenses/${id}/approve`, {
+  approveExpense: async (id: string, comment?: string, percentage?: number): Promise<Expense> => {
+    console.log('🔍 API - Approving expense with ID:', id);
+    console.log('🔍 API - Comment:', comment);
+    console.log('🔍 API - Percentage:', percentage);
+    
+    if (!id) {
+      throw new Error('Expense ID is required for approval');
+    }
+    
+    const response = await apiRequest<{ data: any }>(`/expenses/${id}/approve`, {
       method: 'PUT',
-      body: JSON.stringify({ comment }),
+      body: JSON.stringify({ comment, approvalPercentage: percentage }),
     });
-    return response.data!;
+    
+    console.log('🔍 API - Response received:', response);
+    
+    const expense = response.data!;
+    
+    // Transform MongoDB _id to id for frontend compatibility
+    return {
+      ...expense,
+      id: expense._id || expense.id,
+      submittedBy: typeof expense.submittedBy === 'object' ? expense.submittedBy : { _id: expense.submittedBy },
+      approvedBy: expense.approvedBy && typeof expense.approvedBy === 'object' ? expense.approvedBy : expense.approvedBy
+    };
   },
 
   // Reject expense
-  rejectExpense: async (id: string, comment: string): Promise<Expense> => {
-    const response = await apiRequest<{ data: Expense }>(`/expenses/${id}/reject`, {
+  rejectExpense: async (id: string, comment?: string): Promise<Expense> => {
+    const response = await apiRequest<{ data: any }>(`/expenses/${id}/reject`, {
       method: 'PUT',
       body: JSON.stringify({ comment }),
     });
-    return response.data!;
+    const expense = response.data!;
+    
+    // Transform MongoDB _id to id for frontend compatibility
+    return {
+      ...expense,
+      id: expense._id || expense.id,
+      submittedBy: typeof expense.submittedBy === 'object' ? expense.submittedBy : { _id: expense.submittedBy },
+      approvedBy: expense.approvedBy && typeof expense.approvedBy === 'object' ? expense.approvedBy : expense.approvedBy
+    };
   },
+
 
   // Escalate expense
   escalateExpense: async (id: string, comment: string, escalateTo: string): Promise<Expense> => {
@@ -417,39 +528,6 @@ export const ocrAPI = {
   },
 };
 
-// Settings API
-export const settingsAPI = {
-  // Get approval rules
-  getApprovalRules: async (): Promise<any[]> => {
-    const response = await apiRequest<{ data: any[] }>('/settings/approval-rules');
-    return response.data!;
-  },
-
-  // Add approval rule
-  addApprovalRule: async (ruleData: any): Promise<any> => {
-    const response = await apiRequest<{ data: any }>('/settings/approval-rules', {
-      method: 'POST',
-      body: JSON.stringify(ruleData),
-    });
-    return response.data!;
-  },
-
-  // Update approval rule
-  updateApprovalRule: async (id: string, ruleData: any): Promise<any> => {
-    const response = await apiRequest<{ data: any }>(`/settings/approval-rules/${id}`, {
-      method: 'PUT',
-      body: JSON.stringify(ruleData),
-    });
-    return response.data!;
-  },
-
-  // Delete approval rule
-  deleteApprovalRule: async (id: string): Promise<void> => {
-    await apiRequest(`/settings/approval-rules/${id}`, {
-      method: 'DELETE',
-    });
-  },
-};
 
 // Integration API
 export const integrationAPI = {

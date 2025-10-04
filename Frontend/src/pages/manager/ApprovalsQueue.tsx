@@ -18,8 +18,8 @@ const ApprovalsQueue = () => {
 
   // Fetch all expenses for approval
   const { data: allExpenses = [], isLoading: expensesLoading } = useQuery({
-    queryKey: ['allExpenses'],
-    queryFn: () => expenseAPI.getUserExpenses(), // This will need to be updated to get all company expenses
+    queryKey: ['companyExpenses'],
+    queryFn: () => expenseAPI.getCompanyExpenses(),
   });
 
   // Filter expenses by status
@@ -27,21 +27,21 @@ const ApprovalsQueue = () => {
   const approvedExpenses = allExpenses.filter(expense => expense.status === 'approved');
   const rejectedExpenses = allExpenses.filter(expense => expense.status === 'rejected');
 
-  const handleApprove = async (expenseId: string) => {
+  const handleApprove = async (expenseId: string, comment?: string) => {
     try {
-      await expenseAPI.approveExpense(expenseId, "Approved by manager");
-      queryClient.invalidateQueries({ queryKey: ['allExpenses'] });
+      await expenseAPI.approveExpense(expenseId, comment || "Approved by manager");
+      queryClient.invalidateQueries({ queryKey: ['companyExpenses'] });
       toast.success("Expense approved successfully! ✅");
     } catch (error: any) {
       toast.error(error.message || "Failed to approve expense");
     }
   };
 
-  const handleReject = async (expenseId: string) => {
+  const handleReject = async (expenseId: string, comment?: string) => {
     try {
-      await expenseAPI.rejectExpense(expenseId, "Rejected by manager");
-      queryClient.invalidateQueries({ queryKey: ['allExpenses'] });
-      toast.error("Expense rejected");
+      await expenseAPI.rejectExpense(expenseId, comment || "Rejected by manager");
+      queryClient.invalidateQueries({ queryKey: ['companyExpenses'] });
+      toast.success("Expense rejected successfully! ❌");
     } catch (error: any) {
       toast.error(error.message || "Failed to reject expense");
     }

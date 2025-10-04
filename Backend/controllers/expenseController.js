@@ -53,6 +53,37 @@ exports.getUserExpenses = async (req, res, next) => {
     }
     
     const expenses = await Expense.find(query)
+      .populate('submittedBy', 'name email')
+      .populate('approvedBy', 'name email')
+      .sort({ createdAt: -1 });
+    
+    res.status(200).json({
+      success: true,
+      count: expenses.length,
+      data: expenses
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+// @desc    Get all company expenses (Manager/Admin)
+// @route   GET /api/expenses/company
+// @access  Manager/Admin
+exports.getCompanyExpenses = async (req, res, next) => {
+  try {
+    const { status, submittedBy } = req.query;
+    
+    let query = { companyId: req.user.companyId };
+    if (status) {
+      query.status = status;
+    }
+    if (submittedBy) {
+      query.submittedBy = submittedBy;
+    }
+    
+    const expenses = await Expense.find(query)
+      .populate('submittedBy', 'name email role')
       .populate('approvedBy', 'name email')
       .sort({ createdAt: -1 });
     
@@ -168,7 +199,7 @@ exports.deleteExpense = async (req, res, next) => {
 // @access  Manager / Admin
 exports.approveExpense = async (req, res, next) => {
   try {
-    const { comment } = req.body;
+    const { comment, approvalPercentage = 100 } = req.body;
     
     const expense = await Expense.findById(req.params.id);
     
@@ -180,25 +211,59 @@ exports.approveExpense = async (req, res, next) => {
       return next(new ErrorResponse('Expense is not pending for approval', 400));
     }
     
+    // Calculate approved amount based on percentage
+    const approvedAmount = expense.amount * (approvalPercentage / 100);
+    const rejectedAmount = expense.amount - approvedAmount;
+    
+    const updateData = {
+      status: 'approved',
+      approvedBy: req.user.id,
+      approvedAt: new Date(),
+      approvalComments: comment,
+      approvalPercentage: approvalPercentage,
+      approvedAmount: approvedAmount,
+      rejectedAmount: rejectedAmount
+    };
+    
+    // If partial approval, add escalation history
+    if (approvalPercentage < 100) {
+      updateData.escalationHistory = [
+        ...(expense.escalationHistory || []),
+        {
+          action: 'partial_approval',
+          approvedBy: req.user.id,
+          approvedAt: new Date(),
+          approvedAmount: approvedAmount,
+          rejectedAmount: rejectedAmount,
+          comment: comment,
+          percentage: approvalPercentage
+        }
+      ];
+    }
+    
     const updatedExpense = await Expense.findByIdAndUpdate(
       req.params.id,
-      {
-        status: 'approved',
-        approvedBy: req.user.id,
-        approvedAt: new Date(),
-        approvalComments: comment
-      },
+      updateData,
       { new: true }
     );
     
     // Create notification for the employee
+    const notificationMessage = approvalPercentage === 100 
+      ? `Your expense of ${expense.amount} ${expense.currency} has been fully approved`
+      : `Your expense of ${expense.amount} ${expense.currency} has been partially approved (${approvalPercentage}% - ${approvedAmount} ${expense.currency})`;
+    
     await Notification.create({
       userId: expense.submittedBy,
       companyId: expense.companyId,
       type: 'expense_approved',
-      title: 'Expense Approved',
-      message: `Your expense of ${expense.amount} ${expense.currency} has been approved`,
-      data: { expenseId: expense._id }
+      title: approvalPercentage === 100 ? 'Expense Approved' : 'Expense Partially Approved',
+      message: notificationMessage,
+      data: { 
+        expenseId: expense._id,
+        approvedAmount: approvedAmount,
+        rejectedAmount: rejectedAmount,
+        percentage: approvalPercentage
+      }
     });
     
     res.status(200).json({

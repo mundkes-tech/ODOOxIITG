@@ -35,6 +35,12 @@ const AdminDashboard = () => {
     queryFn: () => analyticsAPI.getDashboardAnalytics(),
   });
 
+  // Debug analytics data
+  console.log('🔍 Admin Dashboard - Analytics data:', analytics);
+  console.log('🔍 Admin Dashboard - Monthly data:', analytics.expensesByMonth);
+  console.log('🔍 Admin Dashboard - Category data:', analytics.expensesByCategory);
+  console.log('🔍 Admin Dashboard - Top spenders:', analytics.topSpenders);
+
   // Fetch company info
   const { data: company } = useQuery({
     queryKey: ['company'],
@@ -47,6 +53,11 @@ const AdminDashboard = () => {
   const employees = users.filter(u => u.role === 'employee').length;
   const totalAmount = analytics.summary?.totalAmount || 0;
   const pendingAmount = analytics.summary?.pendingAmount || 0;
+  const approvedAmount = analytics.summary?.approvedAmount || 0;
+  const totalExpenses = analytics.summary?.totalExpenses || 0;
+  const pendingExpenses = analytics.summary?.pendingExpenses || 0;
+  const approvedExpenses = analytics.summary?.approvedExpenses || 0;
+  const rejectedExpenses = analytics.summary?.rejectedExpenses || 0;
 
   const stats = [
     {
@@ -54,21 +65,21 @@ const AdminDashboard = () => {
       value: totalUsers.toString(),
       icon: Users,
       color: "from-blue-500 to-blue-600",
-      change: `${employees} employees`,
-    },
-    {
-      title: "Active Managers",
-      value: managers.toString(),
-      icon: Shield,
-      color: "from-purple-500 to-purple-600",
-      change: "Managing teams",
+      change: `${employees} employees, ${managers} managers`,
     },
     {
       title: "Total Expenses",
-      value: formatCurrency(totalAmount, companyCurrency),
+      value: totalExpenses.toString(),
       icon: TrendingUp,
       color: "from-green-500 to-emerald-600",
-      change: `${formatCurrency(pendingAmount, companyCurrency)} pending`,
+      change: `${approvedExpenses} approved, ${pendingExpenses} pending`,
+    },
+    {
+      title: "Total Amount",
+      value: formatCurrency(totalAmount, companyCurrency),
+      icon: Shield,
+      color: "from-purple-500 to-purple-600",
+      change: `${formatCurrency(approvedAmount, companyCurrency)} approved`,
     },
     {
       title: "Company",
@@ -79,22 +90,43 @@ const AdminDashboard = () => {
     },
   ];
 
-  // Use real analytics data or fallback to mock data
-  const monthlyData = analytics.expensesByMonth || [
-    { month: "Jan", amount: 0 },
-    { month: "Feb", amount: 0 },
-    { month: "Mar", amount: 0 },
-    { month: "Apr", amount: 0 },
-    { month: "May", amount: 0 },
-    { month: "Jun", amount: 0 },
-  ];
+  // Process monthly data from backend
+  const monthlyData = analytics.expensesByMonth && analytics.expensesByMonth.length > 0 ? 
+    analytics.expensesByMonth.map((item: any) => ({
+      month: new Date(0, item._id.month - 1).toLocaleDateString('en-US', { month: 'short' }),
+      amount: item.total || 0,
+      count: item.count || 0
+    })) : [
+      { month: "Jan", amount: 0, count: 0 },
+      { month: "Feb", amount: 0, count: 0 },
+      { month: "Mar", amount: 0, count: 0 },
+      { month: "Apr", amount: 0, count: 0 },
+      { month: "May", amount: 0, count: 0 },
+      { month: "Jun", amount: 0, count: 0 },
+    ];
 
-  const categoryData = analytics.expensesByCategory || [
-    { name: "Travel", value: 0, color: "#8B5CF6" },
-    { name: "Meals", value: 0, color: "#EC4899" },
-    { name: "Accommodation", value: 0, color: "#3B82F6" },
-    { name: "Supplies", value: 0, color: "#10B981" },
-  ];
+  // Process category data from backend
+  const categoryColors = {
+    'travel': '#8B5CF6',
+    'meals': '#EC4899',
+    'accommodation': '#3B82F6',
+    'supplies': '#10B981',
+    'equipment': '#F59E0B',
+    'other': '#6B7280'
+  };
+
+  const categoryData = analytics.expensesByCategory && analytics.expensesByCategory.length > 0 ? 
+    analytics.expensesByCategory.map((item: any) => ({
+      name: item._id.charAt(0).toUpperCase() + item._id.slice(1),
+      value: item.total || 0,
+      count: item.count || 0,
+      color: categoryColors[item._id as keyof typeof categoryColors] || '#6B7280'
+    })) : [
+      { name: "Travel", value: 0, count: 0, color: "#8B5CF6" },
+      { name: "Meals", value: 0, count: 0, color: "#EC4899" },
+      { name: "Accommodation", value: 0, count: 0, color: "#3B82F6" },
+      { name: "Supplies", value: 0, count: 0, color: "#10B981" },
+    ];
 
   // Get recent users (last 4)
   const recentUsers = users
@@ -157,28 +189,50 @@ const AdminDashboard = () => {
               <CardTitle>Monthly Expense Trends</CardTitle>
             </CardHeader>
             <CardContent>
-              <ResponsiveContainer width="100%" height={300}>
-                <BarChart data={monthlyData}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="#E5E7EB" />
-                  <XAxis dataKey="month" stroke="#6B7280" />
-                  <YAxis stroke="#6B7280" />
-                  <Tooltip
-                    contentStyle={{
-                      backgroundColor: "rgba(255, 255, 255, 0.9)",
-                      border: "none",
-                      borderRadius: "12px",
-                      boxShadow: "0 4px 6px rgba(0,0,0,0.1)",
-                    }}
-                  />
-                  <Bar dataKey="amount" fill="url(#colorGradient)" radius={[8, 8, 0, 0]} />
-                  <defs>
-                    <linearGradient id="colorGradient" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="0%" stopColor="#8B5CF6" />
-                      <stop offset="100%" stopColor="#EC4899" />
-                    </linearGradient>
-                  </defs>
-                </BarChart>
-              </ResponsiveContainer>
+              {analyticsLoading ? (
+                <div className="flex items-center justify-center h-[300px]">
+                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+                </div>
+              ) : monthlyData.every(item => item.amount === 0) ? (
+                <div className="flex flex-col items-center justify-center h-[300px] text-muted-foreground">
+                  <TrendingUp className="w-12 h-12 mb-4 opacity-50" />
+                  <p className="text-lg font-medium">No expense data yet</p>
+                  <p className="text-sm">Expenses will appear here once submitted</p>
+                </div>
+              ) : (
+                <ResponsiveContainer width="100%" height={300}>
+                  <BarChart data={monthlyData}>
+                    <CartesianGrid strokeDasharray="3 3" stroke="#E5E7EB" />
+                    <XAxis dataKey="month" stroke="#6B7280" />
+                    <YAxis stroke="#6B7280" />
+                    <Tooltip
+                      content={({ active, payload, label }) => {
+                        if (active && payload && payload.length) {
+                          return (
+                            <div className="bg-white p-3 border border-gray-200 rounded-lg shadow-lg">
+                              <p className="font-semibold">{label}</p>
+                              <p className="text-blue-600">
+                                Amount: {formatCurrency(payload[0].value, companyCurrency)}
+                              </p>
+                              <p className="text-gray-600">
+                                Count: {payload[0].payload.count} expenses
+                              </p>
+                            </div>
+                          );
+                        }
+                        return null;
+                      }}
+                    />
+                    <Bar dataKey="amount" fill="url(#colorGradient)" radius={[8, 8, 0, 0]} />
+                    <defs>
+                      <linearGradient id="colorGradient" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="0%" stopColor="#8B5CF6" />
+                        <stop offset="100%" stopColor="#EC4899" />
+                      </linearGradient>
+                    </defs>
+                  </BarChart>
+                </ResponsiveContainer>
+              )}
             </CardContent>
           </Card>
         </motion.div>
@@ -193,35 +247,109 @@ const AdminDashboard = () => {
               <CardTitle>Expenses by Category</CardTitle>
             </CardHeader>
             <CardContent>
-              <ResponsiveContainer width="100%" height={300}>
-                <PieChart>
-                  <Pie
-                    data={categoryData}
-                    cx="50%"
-                    cy="50%"
-                    labelLine={false}
-                    label={({ name, percent }) => `${name}: ${(percent * 100).toFixed(0)}%`}
-                    outerRadius={100}
-                    fill="#8884d8"
-                    dataKey="value"
-                  >
-                    {categoryData.map((entry, index) => (
-                      <Cell key={`cell-${index}`} fill={entry.color} />
-                    ))}
-                  </Pie>
-                  <Tooltip />
-                </PieChart>
-              </ResponsiveContainer>
+              {analyticsLoading ? (
+                <div className="flex items-center justify-center h-[300px]">
+                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+                </div>
+              ) : categoryData.every(item => item.value === 0) ? (
+                <div className="flex flex-col items-center justify-center h-[300px] text-muted-foreground">
+                  <div className="w-12 h-12 mb-4 rounded-full bg-gradient-to-br from-purple-500 to-pink-500 flex items-center justify-center">
+                    <span className="text-white text-xl">📊</span>
+                  </div>
+                  <p className="text-lg font-medium">No category data yet</p>
+                  <p className="text-sm">Expense categories will appear here</p>
+                </div>
+              ) : (
+                <ResponsiveContainer width="100%" height={300}>
+                  <PieChart>
+                    <Pie
+                      data={categoryData}
+                      cx="50%"
+                      cy="50%"
+                      labelLine={false}
+                      label={({ name, percent }) => `${name}: ${(percent * 100).toFixed(0)}%`}
+                      outerRadius={100}
+                      fill="#8884d8"
+                      dataKey="value"
+                    >
+                      {categoryData.map((entry, index) => (
+                        <Cell key={`cell-${index}`} fill={entry.color} />
+                      ))}
+                    </Pie>
+                    <Tooltip
+                      content={({ active, payload }) => {
+                        if (active && payload && payload.length) {
+                          const data = payload[0].payload;
+                          return (
+                            <div className="bg-white p-3 border border-gray-200 rounded-lg shadow-lg">
+                              <p className="font-semibold">{data.name}</p>
+                              <p className="text-blue-600">
+                                Amount: {formatCurrency(data.value, companyCurrency)}
+                              </p>
+                              <p className="text-gray-600">
+                                Count: {data.count} expenses
+                              </p>
+                            </div>
+                          );
+                        }
+                        return null;
+                      }}
+                    />
+                  </PieChart>
+                </ResponsiveContainer>
+              )}
             </CardContent>
           </Card>
         </motion.div>
       </div>
 
+      {/* Top Spenders */}
+      {analytics.topSpenders && analytics.topSpenders.length > 0 && (
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.6 }}
+        >
+          <Card className="glass-card border-none">
+            <CardHeader>
+              <CardTitle className="text-2xl">Top Spenders</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-3">
+                {analytics.topSpenders.slice(0, 5).map((spender: any, index: number) => (
+                  <motion.div
+                    key={spender.userId}
+                    initial={{ opacity: 0, x: -20 }}
+                    animate={{ opacity: 1, x: 0 }}
+                    transition={{ delay: 0.7 + index * 0.1 }}
+                    className="flex items-center justify-between p-4 rounded-lg bg-muted/50"
+                  >
+                    <div className="flex items-center gap-3">
+                      <div className="w-8 h-8 rounded-full bg-gradient-to-br from-primary to-purple-600 flex items-center justify-center text-white font-semibold text-sm">
+                        {index + 1}
+                      </div>
+                      <div>
+                        <p className="font-semibold">{spender.name}</p>
+                        <p className="text-sm text-muted-foreground">{spender.email}</p>
+                      </div>
+                    </div>
+                    <div className="text-right">
+                      <p className="font-bold text-lg">{formatCurrency(spender.total, companyCurrency)}</p>
+                      <p className="text-sm text-muted-foreground">{spender.count} expenses</p>
+                    </div>
+                  </motion.div>
+                ))}
+              </div>
+            </CardContent>
+          </Card>
+        </motion.div>
+      )}
+
       {/* Recent Users */}
       <motion.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
-        transition={{ delay: 0.6 }}
+        transition={{ delay: 0.8 }}
       >
         <Card className="glass-card border-none">
           <CardHeader>

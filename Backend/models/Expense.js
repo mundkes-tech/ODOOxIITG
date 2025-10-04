@@ -74,6 +74,54 @@ const expenseSchema = new mongoose.Schema({
     type: String,
     trim: true
   },
+  approvalPercentage: {
+    type: Number,
+    default: 100,
+    min: 0,
+    max: 100
+  },
+  approvedAmount: {
+    type: Number,
+    default: 0
+  },
+  rejectedAmount: {
+    type: Number,
+    default: 0
+  },
+  escalationHistory: [{
+    action: {
+      type: String,
+      enum: ['escalated', 'approved', 'rejected', 'returned', 'partial_approval']
+    },
+    escalatedBy: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'User'
+    },
+    escalatedAt: {
+      type: Date,
+      default: Date.now
+    },
+    escalatedTo: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'User'
+    },
+    comment: {
+      type: String,
+      trim: true
+    },
+    approvedAmount: {
+      type: Number,
+      default: 0
+    },
+    rejectedAmount: {
+      type: Number,
+      default: 0
+    },
+    percentage: {
+      type: Number,
+      default: 100
+    }
+  }],
   workflowId: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'Workflow',
