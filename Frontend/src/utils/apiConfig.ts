@@ -5,7 +5,8 @@ export const getApiUrl = () => {
   
   // Development
   if (hostname === 'localhost' || hostname === '127.0.0.1') {
-    return 'http://localhost:5000/api';
+      // Ensure this matches your local backend's port and base path
+      return 'http://localhost:5000/api'; 
   }
   
   // Production - your deployed backend
