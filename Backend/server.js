@@ -4,9 +4,11 @@ const morgan = require('morgan');
 const colors = require('colors');
 const cors = require('cors');
 const helmet = require('helmet');
+const http = require('http');
 const connectDB = require('./config/db');
 const errorHandler = require('./middleware/error');
 const { authLimiter, apiLimiter } = require('./middleware/rateLimiter');
+const realtimeService = require('./services/realtimeService');
 
 // Load env vars
 dotenv.config({ path: './.env' });
@@ -36,6 +38,8 @@ const ocrRoutes = require('./routes/ocrRoute');
 const settingsRoutes = require('./routes/settingsRoute');
 const analyticsRoutes = require('./routes/analyticsRoute');
 const notificationRoutes = require('./routes/notificationRoute');
+const integrationRoutes = require('./routes/integrationRoute');
+const smartFinanceRoutes = require('./routes/smartFinanceRoute');
 
 const app = express();
 
@@ -76,6 +80,8 @@ app.use('/api/ocr', ocrRoutes);
 app.use('/api/settings', settingsRoutes);
 app.use('/api/analytics', analyticsRoutes);
 app.use('/api/notifications', notificationRoutes);
+app.use('/api/integrations', integrationRoutes);
+app.use('/api/smart-finance', smartFinanceRoutes);
 
 // Health check endpoint
 app.get('/api/health', (req, res) => {
@@ -91,7 +97,12 @@ app.use(errorHandler);
 
 const PORT = process.env.PORT || 5000;
 
-const server = app.listen(
+const server = http.createServer(app);
+
+// Initialize real-time service
+realtimeService.initialize(server);
+
+server.listen(
   PORT,
   console.log(
     `Server running in ${process.env.NODE_ENV} mode on port ${PORT}`.yellow.bold

@@ -518,13 +518,229 @@ export const ocrAPI = {
 };
 
 
-export default {
-    authAPI,
-    userAPI,
-    companyAPI,
-    expenseAPI,
-    analyticsAPI,
-    notificationAPI,
-    ocrAPI,
-    settingsAPI,
+// Integration API
+export const integrationAPI = {
+  // Corporate Card Integration
+  corporateCard: {
+    syncTransactions: async (): Promise<any> => {
+      const response = await apiRequest<{ data: any }>('/integrations/corporate-card/sync', {
+        method: 'POST',
+      });
+      return response.data!;
+    },
+
+    getMatches: async (params?: any): Promise<any> => {
+      const queryParams = params ? `?${new URLSearchParams(params).toString()}` : '';
+      const response = await apiRequest<{ data: any }>(`/integrations/corporate-card/matches${queryParams}`);
+      return response.data!;
+    },
+
+    matchTransaction: async (transactionId: string, expenseId: string): Promise<any> => {
+      const response = await apiRequest<{ data: any }>(`/integrations/corporate-card/match/${transactionId}/${expenseId}`, {
+        method: 'POST',
+      });
+      return response.data!;
+    },
+  },
+
+  // Accounting System Integration
+  accounting: {
+    syncGLAccounts: async (): Promise<any> => {
+      const response = await apiRequest<{ data: any }>('/integrations/accounting/sync-gl-accounts', {
+        method: 'POST',
+      });
+      return response.data!;
+    },
+
+    createGLMapping: async (mappingData: any): Promise<any> => {
+      const response = await apiRequest<{ data: any }>('/integrations/accounting/gl-mappings', {
+        method: 'POST',
+        body: JSON.stringify(mappingData),
+      });
+      return response.data!;
+    },
+
+    getGLMappings: async (params?: any): Promise<any> => {
+      const queryParams = params ? `?${new URLSearchParams(params).toString()}` : '';
+      const response = await apiRequest<{ data: any }>(`/integrations/accounting/gl-mappings${queryParams}`);
+      return response.data!;
+    },
+
+    updateGLMapping: async (id: string, mappingData: any): Promise<any> => {
+      const response = await apiRequest<{ data: any }>(`/integrations/accounting/gl-mappings/${id}`, {
+        method: 'PUT',
+        body: JSON.stringify(mappingData),
+      });
+      return response.data!;
+    },
+
+    deleteGLMapping: async (id: string): Promise<void> => {
+      await apiRequest(`/integrations/accounting/gl-mappings/${id}`, {
+        method: 'DELETE',
+      });
+    },
+
+    syncExpenseToAccounting: async (expenseId: string, glAccountId: string): Promise<any> => {
+      const response = await apiRequest<{ data: any }>(`/integrations/accounting/sync-expense/${expenseId}`, {
+        method: 'POST',
+        body: JSON.stringify({ glAccountId }),
+      });
+      return response.data!;
+    },
+  },
+
+  // Travel Integration
+  travel: {
+    fetchBookings: async (params?: any): Promise<any> => {
+      const response = await apiRequest<{ data: any }>('/integrations/travel/fetch-bookings', {
+        method: 'POST',
+        body: JSON.stringify(params),
+      });
+      return response.data!;
+    },
+
+    getBookings: async (params?: any): Promise<any> => {
+      const queryParams = params ? `?${new URLSearchParams(params).toString()}` : '';
+      const response = await apiRequest<{ data: any }>(`/integrations/travel/bookings${queryParams}`);
+      return response.data!;
+    },
+
+    prePopulateExpenses: async (bookingId: string): Promise<any> => {
+      const response = await apiRequest<{ data: any }>(`/integrations/travel/pre-populate/${bookingId}`, {
+        method: 'POST',
+      });
+      return response.data!;
+    },
+  },
+
+  // Integration Status
+  getStatus: async (): Promise<any> => {
+    const response = await apiRequest<{ data: any }>('/integrations/status');
+    return response.data!;
+  },
 };
+
+// Smart Finance API
+export const smartFinanceAPI = {
+  // Reimbursement Batch Operations
+  reimbursementBatches: {
+    createBatch: async (batchData: any): Promise<any> => {
+      const response = await apiRequest<{ data: any }>('/smart-finance/reimbursement-batches', {
+        method: 'POST',
+        body: JSON.stringify(batchData),
+      });
+      return response.data!;
+    },
+
+    getBatches: async (params?: any): Promise<any> => {
+      const queryParams = params ? `?${new URLSearchParams(params).toString()}` : '';
+      const response = await apiRequest<{ data: any }>(`/smart-finance/reimbursement-batches${queryParams}`);
+      return response.data!;
+    },
+
+    generatePaymentData: async (batchId: string, format: string): Promise<any> => {
+      const response = await apiRequest<{ data: any }>(`/smart-finance/reimbursement-batches/${batchId}/generate-payment`, {
+        method: 'POST',
+        body: JSON.stringify({ format }),
+      });
+      return response.data!;
+    },
+  },
+
+  // Currency Rate Locking Operations
+  currency: {
+    lockRate: async (rateData: any): Promise<any> => {
+      const response = await apiRequest<{ data: any }>('/smart-finance/currency/lock-rate', {
+        method: 'POST',
+        body: JSON.stringify(rateData),
+      });
+      return response.data!;
+    },
+
+    getRateLock: async (expenseId: string): Promise<any> => {
+      const response = await apiRequest<{ data: any }>(`/smart-finance/currency/rate-lock/${expenseId}`);
+      return response.data!;
+    },
+
+    convertAmount: async (expenseId: string, amount: number): Promise<any> => {
+      const response = await apiRequest<{ data: any }>(`/smart-finance/currency/convert/${expenseId}`, {
+        method: 'POST',
+        body: JSON.stringify({ amount }),
+      });
+      return response.data!;
+    },
+  },
+
+  // Employee Wallet Operations
+  wallet: {
+    getWallet: async (): Promise<any> => {
+      const response = await apiRequest<{ data: any }>('/smart-finance/wallet');
+      return response.data!;
+    },
+
+    getCompanyWallets: async (params?: any): Promise<any> => {
+      const queryParams = params ? `?${new URLSearchParams(params).toString()}` : '';
+      const response = await apiRequest<{ data: any }>(`/smart-finance/wallets${queryParams}`);
+      return response.data!;
+    },
+
+    updateWallet: async (): Promise<any> => {
+      const response = await apiRequest<{ data: any }>('/smart-finance/wallet/update', {
+        method: 'PUT',
+      });
+      return response.data!;
+    },
+
+    getAnalytics: async (): Promise<any> => {
+      const response = await apiRequest<{ data: any }>('/smart-finance/wallet/analytics');
+      return response.data!;
+    },
+
+    getCurrencyBreakdown: async (): Promise<any> => {
+      const response = await apiRequest<{ data: any }>('/smart-finance/wallet/currency-breakdown');
+      return response.data!;
+    },
+
+    getNotifications: async (): Promise<any> => {
+      const response = await apiRequest<{ data: any }>('/smart-finance/wallet/notifications');
+      return response.data!;
+    },
+  },
+};
+
+// Real-time API
+export const realtimeAPI = {
+  // Emit real-time events
+  emitExpenseUpdate: (expenseId: string, action: string): void => {
+    console.log(`Emitting expense update: ${expenseId} - ${action}`);
+    // This would typically be handled by the real-time service
+  },
+
+  emitApprovalUpdate: (expenseId: string, approverId: string, action: string): void => {
+    console.log(`Emitting approval update: ${expenseId} - ${action} by ${approverId}`);
+  },
+
+  emitNotification: (userId: string, notification: any): void => {
+    console.log(`Emitting notification to user: ${userId}`, notification);
+  },
+
+  // Request real-time sync
+  requestSync: (integrationType: string, params?: any): void => {
+    console.log(`Requesting sync for: ${integrationType}`, params);
+  },
+};
+
+export default {
+  authAPI,
+  userAPI,
+  companyAPI,
+  expenseAPI,
+  analyticsAPI,
+  notificationAPI,
+  ocrAPI,
+  settingsAPI,
+  integrationAPI,
+  smartFinanceAPI,
+  realtimeAPI,
+};
+
